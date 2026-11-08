@@ -270,6 +270,11 @@ public class MainActivity extends FragmentActivity {
 
         if (forUnlock) {
             builder.setNegativeButtonText("Use KICHS PIN");
+        } else {
+            // AndroidX BiometricPrompt requires a negative button when device
+            // credentials are not allowed. Without it, authenticate() throws
+            // IllegalArgumentException and the app closes when enrollment starts.
+            builder.setNegativeButtonText("Cancel");
         }
         prompt.authenticate(builder.build());
     }
