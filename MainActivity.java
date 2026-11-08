@@ -64,7 +64,7 @@ public class MainActivity extends FragmentActivity {
                             + "buttons.forEach(function(b){"
                             + "var label=(b.innerText||b.textContent||'').trim().toLowerCase();"
                             + "var action=(b.getAttribute('onclick')||'').toLowerCase();"
-                            + "if(label.indexOf('enroll fingerprint')!==-1||label.indexOf('set up / use fingerprint')!==-1||action.indexOf('checkkichsbiometricsupport')!==-1||action.indexOf('passkey')!==-1){"
+                            + "if(b.id==='ksetEnrollPasskey'||label.indexOf('enroll fingerprint')!==-1||label.indexOf('set up / use fingerprint')!==-1||action.indexOf('checkkichsbiometricsupport')!==-1||action.indexOf('passkey')!==-1){"
                             + "if(b.getAttribute('data-kichs-native-bound')!=='1'){"
                             + "b.removeAttribute('onclick');"
                             + "b.onclick=function(e){e.preventDefault();e.stopPropagation();if(s)s.textContent='Opening secure Android fingerprint verification…';if(window.KICHSBiometric&&window.KICHSBiometric.setupFingerprint){window.KICHSBiometric.setupFingerprint();}else if(s){s.textContent='Native fingerprint service is unavailable. Please reinstall the latest KICHS APK.';}return false;};"
