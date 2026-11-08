@@ -47,7 +47,7 @@ jobs:
           needle = "                    view.evaluateJavascript(bridgeScript, null);"
           if source.count(needle) != 1:
               raise SystemExit("Could not find the exact WebView bridge insertion point")
-          addition = needle + "\\n                    String reliableSettingsFingerprintScript = " + json.dumps(js) + ";\\n                    view.evaluateJavascript(reliableSettingsFingerprintScript, null);"
+          addition = needle + "\n                    String reliableSettingsFingerprintScript = " + json.dumps(js) + ";\n                    view.evaluateJavascript(reliableSettingsFingerprintScript, null);"
           java.write_text(source.replace(needle, addition), encoding="utf-8")
           PY
           grep -q 'reliableSettingsFingerprintScript' extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
