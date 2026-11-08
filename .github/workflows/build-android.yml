@@ -36,6 +36,22 @@ jobs:
         run: |
           sed -i 's#https://12773bdf.kichs-students-app.pages.dev/#https://kichs-app.pages.dev/#' extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
           grep -q 'APP_URL = "https://kichs-app.pages.dev/";' extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
+      - name: Inject reliable Settings fingerprint button
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          java = Path("extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java")
+          js = Path("fingerprint-settings-inject.js").read_text(encoding="utf-8")
+          source = java.read_text(encoding="utf-8")
+          needle = "                    view.evaluateJavascript(bridgeScript, null);"
+          if source.count(needle) != 1:
+              raise SystemExit("Could not find the exact WebView bridge insertion point")
+          addition = needle + "\\n                    String reliableSettingsFingerprintScript = " + json.dumps(js) + ";\\n                    view.evaluateJavascript(reliableSettingsFingerprintScript, null);"
+          java.write_text(source.replace(needle, addition), encoding="utf-8")
+          PY
+          grep -q 'reliableSettingsFingerprintScript' extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
