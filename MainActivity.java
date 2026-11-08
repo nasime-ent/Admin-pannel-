@@ -73,6 +73,8 @@ public class MainActivity extends FragmentActivity {
                             + "}"
                             + "}"
                             + "});"
+                            + "var fpButtons=Array.prototype.slice.call(document.querySelectorAll('button')).filter(function(b){var t=(b.innerText||b.textContent||'').trim().toLowerCase();var a=(b.getAttribute('onclick')||'').toLowerCase();return t.indexOf('enroll fingerprint')!==-1||t.indexOf('set up / use fingerprint')!==-1||a.indexOf('checkkichsbiometricsupport')!==-1||a.indexOf('passkey')!==-1;});"
+                            + "for(var i=1;i<fpButtons.length;i++){fpButtons[i].remove();}"
                             + "window.checkKichsBiometricSupport=function(){if(window.KICHSBiometric&&window.KICHSBiometric.setupFingerprint){window.KICHSBiometric.setupFingerprint();}else if(s){s.textContent='Native fingerprint service is unavailable. Please reinstall the latest KICHS APK.';}};"
                             + "}"
                             + "connectKichsFingerprint();"
@@ -82,13 +84,10 @@ public class MainActivity extends FragmentActivity {
                     view.evaluateJavascript(bridgeScript, null);
                 }
 
+                // Do not interrupt first-time users with an app-lock setup pop-up.
+                // Students can enable fingerprint protection later from App Settings.
                 if (!firstLaunchCheckDone) {
                     firstLaunchCheckDone = true;
-                    if (!isBiometricEnabled()) {
-                        offerBiometricSetup();
-                    } else if (appInForeground) {
-                        requestBiometricUnlock();
-                    }
                 }
             }
         });
