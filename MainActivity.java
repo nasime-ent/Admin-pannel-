@@ -121,7 +121,7 @@ public class MainActivity extends FragmentActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private class KichsBiometricBridge {
+    public class KichsBiometricBridge {
         @JavascriptInterface
         public void setupFingerprint() {
             runOnUiThread(() -> enableBiometric());
