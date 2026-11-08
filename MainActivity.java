@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.webkit.WebChromeClient;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebSettings;
@@ -51,6 +52,14 @@ public class MainActivity extends FragmentActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 pageReady = true;
+                if (url != null && url.startsWith("https://kichs-app.pages.dev/")) {
+                    String bridgeScript = "(function(){"
+                            + "var btns=document.querySelectorAll('button[onclick=\\\"checkKichsBiometricSupport()\\\"]');"
+                            + "btns.forEach(function(b){b.innerHTML='<span class=\\\"material-icons\\\">fingerprint</span> Set up / Use Fingerprint';});"
+                            + "window.checkKichsBiometricSupport=function(){var s=document.getElementById('ksetBiometricStatus');if(s)s.textContent='Opening secure Android fingerprint verification…';if(window.KICHSBiometric){window.KICHSBiometric.setupFingerprint();}else if(s){s.textContent='Native fingerprint service is unavailable. Please update the KICHS app.';}};"
+                            + "})();";
+                    view.evaluateJavascript(bridgeScript, null);
+                }
 
                 if (!firstLaunchCheckDone) {
                     firstLaunchCheckDone = true;
@@ -62,6 +71,7 @@ public class MainActivity extends FragmentActivity {
                 }
             }
         });
+        webView.addJavascriptInterface(new KichsBiometricBridge(), "KICHSBiometric");
         webView.setWebChromeClient(new WebChromeClient());
         webView.loadUrl(APP_URL);
     }
@@ -89,6 +99,23 @@ public class MainActivity extends FragmentActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private class KichsBiometricBridge {
+        @JavascriptInterface
+        public void setupFingerprint() {
+            runOnUiThread(() -> enableBiometric());
+        }
+    }
+
+    private void updateFingerprintStatus(String message) {
+        if (webView != null) {
+            String safe = message.replace("\\", "\\\\").replace("'", "\\'");
+            webView.post(() -> webView.evaluateJavascript(
+                    "var e=document.getElementById('ksetBiometricStatus');if(e)e.textContent='" + safe + "';",
+                    null
+            ));
+        }
     }
 
     private boolean isBiometricEnabled() {
@@ -121,6 +148,7 @@ public class MainActivity extends FragmentActivity {
             String message = status == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED
                     ? "No fingerprint is enrolled on this phone. Add a fingerprint in Android Settings, then try again."
                     : "This phone does not currently provide a supported strong biometric authenticator. You can continue using your KICHS PIN/password.";
+            updateFingerprintStatus(message);
             new AlertDialog.Builder(this)
                     .setTitle("Fingerprint unavailable")
                     .setMessage(message)
@@ -173,6 +201,7 @@ public class MainActivity extends FragmentActivity {
                                     "Fingerprint lock enabled.",
                                     Toast.LENGTH_LONG
                             ).show();
+                            updateFingerprintStatus("Fingerprint protection is enabled on this phone.");
                         } else if (!forUnlock) {
                             setBiometricEnabled(false);
                             Toast.makeText(
