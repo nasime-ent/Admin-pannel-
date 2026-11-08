@@ -6,6 +6,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.WebChromeClient;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
@@ -92,6 +93,8 @@ public class MainActivity extends FragmentActivity {
                             + "for(var i=1;i<fpButtons.length;i++){fpButtons[i].remove();}"
                             + "window.checkKichsBiometricSupport=function(){if(window.KICHSBiometric&&window.KICHSBiometric.setupFingerprint){window.KICHSBiometric.setupFingerprint();}else if(s){s.textContent='Native fingerprint service is unavailable. Please reinstall the latest KICHS APK.';}};"
                             + "}"
+                            + "document.addEventListener('focusin',function(e){var t=e.target;if(t&&(/^(INPUT|TEXTAREA)$/.test(t.tagName)||t.isContentEditable)){if(window.KICHSBiometric&&window.KICHSBiometric.requestKeyboard){window.KICHSBiometric.requestKeyboard();}}},true);"
+                            + "document.addEventListener('touchend',function(e){var t=e.target&&e.target.closest?e.target.closest('input,textarea,[contenteditable=true]'):null;if(t){setTimeout(function(){t.focus();if(window.KICHSBiometric&&window.KICHSBiometric.requestKeyboard){window.KICHSBiometric.requestKeyboard();}},80);}},true);"
                             + "connectKichsFingerprint();"
                             + "var observer=new MutationObserver(connectKichsFingerprint);"
                             + "observer.observe(document.documentElement,{childList:true,subtree:true});"
@@ -146,6 +149,18 @@ public class MainActivity extends FragmentActivity {
     }
 
     public class KichsBiometricBridge {
+        @JavascriptInterface
+        public void requestKeyboard() {
+            runOnUiThread(() -> {
+                if (webView == null) return;
+                webView.requestFocus(View.FOCUS_DOWN);
+                InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (imm != null) {
+                    imm.showSoftInput(webView, InputMethodManager.SHOW_IMPLICIT);
+                }
+            });
+        }
+
         @JavascriptInterface
         public void setupFingerprint() {
             runOnUiThread(() -> enableBiometric());
