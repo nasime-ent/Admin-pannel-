@@ -115,7 +115,9 @@ public class MainActivity extends FragmentActivity {
                             + "}"
                             + "document.addEventListener('focusin',function(e){var t=e.target;if(t&&(/^(INPUT|TEXTAREA)$/.test(t.tagName)||t.isContentEditable)){if(window.KICHSBiometric&&window.KICHSBiometric.requestKeyboard){window.KICHSBiometric.requestKeyboard();}}},true);"
                             + "document.addEventListener('touchend',function(e){var t=e.target&&e.target.closest?e.target.closest('input,textarea,[contenteditable=true]'):null;if(t){setTimeout(function(){t.focus();if(window.KICHSBiometric&&window.KICHSBiometric.requestKeyboard){window.KICHSBiometric.requestKeyboard();}},80);}},true);"
-                            + "connectKichsFingerprint();"\n                            + "setTimeout(connectKichsFingerprint,900);setTimeout(connectKichsFingerprint,2200);"\n                            + "document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('button,a,[role=button]'):null;if(t&&/settings/i.test(t.innerText||t.textContent||'')){setTimeout(connectKichsFingerprint,350);setTimeout(connectKichsFingerprint,1000);}},true);"
+                            + "connectKichsFingerprint();"
+                            + "setTimeout(connectKichsFingerprint,900);setTimeout(connectKichsFingerprint,2200);"
+                            + "document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('button,a,[role=button]'):null;if(t&&/settings/i.test(t.innerText||t.textContent||'')){setTimeout(connectKichsFingerprint,350);setTimeout(connectKichsFingerprint,1000);}},true);"
                             // Run the fingerprint wiring once after page load.
                             // Avoid a whole-document MutationObserver here: the
                             // student portal dynamically updates large sections,
