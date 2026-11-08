@@ -8,6 +8,7 @@ on:
     paths:
       - 'KICHS_Android_Complete_Project.zip'
       - '.github/workflows/build-android.yml'
+      - 'MainActivity.java'
 
 jobs:
   build:
@@ -28,6 +29,9 @@ jobs:
           unzip -q KICHS_Android_Complete_Project.zip -d extracted
           test -f extracted/KICHS_Android_Complete_Project/android/settings.gradle
           test -f extracted/KICHS_Android_Complete_Project/android/app/build.gradle
+      - name: Use connected native biometric implementation
+        run: |
+          cp MainActivity.java extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
       - name: Set permanent KICHS website address
         run: |
           sed -i 's#https://12773bdf.kichs-students-app.pages.dev/#https://kichs-app.pages.dev/#' extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
