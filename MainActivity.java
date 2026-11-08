@@ -4,6 +4,7 @@ import android.app.AlertDialog;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
@@ -42,16 +43,35 @@ public class MainActivity extends FragmentActivity {
         }
 
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-        webView = new WebView(this);
+        // Use the WebView's own touch dispatcher directly. Do not intercept
+        // touch events in an OnTouchListener; let WebView process taps,
+        // scrolling and text-field gestures normally.
+        webView = new WebView(this) {
+            @Override
+            public boolean onTouchEvent(MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    requestFocus();
+                    if (getParent() != null) {
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                    }
+                    getWindow().setSoftInputMode(
+                            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                    );
+                }
+                return super.onTouchEvent(event);
+            }
+
+            @Override
+            public boolean performClick() {
+                super.performClick();
+                return true;
+            }
+        };
         webView.setFocusable(true);
         webView.setFocusableInTouchMode(true);
-        webView.setOnTouchListener((v, event) -> {
-            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
-                v.requestFocus();
-                getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-            }
-            return false;
-        });
+        webView.setClickable(true);
+        webView.setEnabled(true);
+        webView.setVerticalScrollBarEnabled(true);
         setContentView(webView);
         webView.requestFocus(View.FOCUS_DOWN);
 
@@ -96,8 +116,10 @@ public class MainActivity extends FragmentActivity {
                             + "document.addEventListener('focusin',function(e){var t=e.target;if(t&&(/^(INPUT|TEXTAREA)$/.test(t.tagName)||t.isContentEditable)){if(window.KICHSBiometric&&window.KICHSBiometric.requestKeyboard){window.KICHSBiometric.requestKeyboard();}}},true);"
                             + "document.addEventListener('touchend',function(e){var t=e.target&&e.target.closest?e.target.closest('input,textarea,[contenteditable=true]'):null;if(t){setTimeout(function(){t.focus();if(window.KICHSBiometric&&window.KICHSBiometric.requestKeyboard){window.KICHSBiometric.requestKeyboard();}},80);}},true);"
                             + "connectKichsFingerprint();"
-                            + "var observer=new MutationObserver(connectKichsFingerprint);"
-                            + "observer.observe(document.documentElement,{childList:true,subtree:true});"
+                            // Run the fingerprint wiring once after page load.
+                            // Avoid a whole-document MutationObserver here: the
+                            // student portal dynamically updates large sections,
+                            // and repeated DOM scans can stall WebView interaction.
                             + "})();";
                     view.evaluateJavascript(bridgeScript, null);
                 }
