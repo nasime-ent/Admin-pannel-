@@ -7,6 +7,7 @@ on:
       - android-apk-setup
     paths:
       - 'KICHS_Android_Complete_Project.zip'
+      - 'MainActivity.java'
       - '.github/workflows/build-android.yml'
 
 jobs:
@@ -28,6 +29,8 @@ jobs:
           unzip -q KICHS_Android_Complete_Project.zip -d extracted
           test -f extracted/KICHS_Android_Complete_Project/android/settings.gradle
           test -f extracted/KICHS_Android_Complete_Project/android/app/build.gradle
+          mkdir -p extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student
+          cp MainActivity.java extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
