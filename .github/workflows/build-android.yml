@@ -28,7 +28,10 @@ jobs:
           unzip -q KICHS_Android_Complete_Project.zip -d extracted
           test -f extracted/KICHS_Android_Complete_Project/android/settings.gradle
           test -f extracted/KICHS_Android_Complete_Project/android/app/build.gradle
-
+      - name: Set permanent KICHS website address
+        run: |
+          sed -i 's#https://12773bdf.kichs-students-app.pages.dev/#https://kichs-app.pages.dev/#' extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
+          grep -q 'APP_URL = "https://kichs-app.pages.dev/";' extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
