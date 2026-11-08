@@ -94,7 +94,7 @@ public class MainActivity extends FragmentActivity {
                             + "if(!document.getElementById('kichsNativeFingerprintEnrollButton')){"
                             + "var fallback=Array.prototype.slice.call(document.querySelectorAll('p,div,span')).find(function(e){return e.children.length===0&&(e.textContent||'').toLowerCase().indexOf('your existing pin/password remains available')!==-1;});"
                             + "var anchor=fallback?fallback.parentElement:null;"
-                            + "var host=anchor?anchor.parentElement:(fpHeading?fpHeading.parentElement.parentElement:null);"
+                            + "var fpText=Array.prototype.slice.call(document.querySelectorAll('p,div,span,small,label')).find(function(e){return e.children.length===0&&/fingerprint|biometric|passkey/i.test(e.textContent||'');});var host=anchor?anchor.parentElement:(fpHeading?fpHeading.parentElement.parentElement:(s?s.parentElement:(fpText?fpText.parentElement.parentElement:null)));"
                             + "if(host){var nativeBtn=document.createElement('button');nativeBtn.id='kichsNativeFingerprintEnrollButton';nativeBtn.type='button';nativeBtn.textContent='🔐  SET UP / USE FINGERPRINT';nativeBtn.style.cssText='display:block;width:100%;margin:18px 0;padding:16px 20px;border:0;border-radius:12px;background:#1264c5;color:#fff;font-size:16px;font-weight:700;cursor:pointer;';nativeBtn.addEventListener('click',function(e){e.preventDefault();if(window.KICHSBiometric&&window.KICHSBiometric.setupFingerprint){window.KICHSBiometric.setupFingerprint();}else{alert('Native fingerprint service is unavailable. Please open the installed KICHS Android app.');}});if(anchor&&anchor.parentElement===host){host.insertBefore(nativeBtn,anchor);}else{host.appendChild(nativeBtn);}}}"
                             + "var buttons=Array.prototype.slice.call(document.querySelectorAll('button'));"
                             + "buttons.forEach(function(b){"
@@ -115,7 +115,7 @@ public class MainActivity extends FragmentActivity {
                             + "}"
                             + "document.addEventListener('focusin',function(e){var t=e.target;if(t&&(/^(INPUT|TEXTAREA)$/.test(t.tagName)||t.isContentEditable)){if(window.KICHSBiometric&&window.KICHSBiometric.requestKeyboard){window.KICHSBiometric.requestKeyboard();}}},true);"
                             + "document.addEventListener('touchend',function(e){var t=e.target&&e.target.closest?e.target.closest('input,textarea,[contenteditable=true]'):null;if(t){setTimeout(function(){t.focus();if(window.KICHSBiometric&&window.KICHSBiometric.requestKeyboard){window.KICHSBiometric.requestKeyboard();}},80);}},true);"
-                            + "connectKichsFingerprint();"
+                            + "connectKichsFingerprint();"\n                            + "setTimeout(connectKichsFingerprint,900);setTimeout(connectKichsFingerprint,2200);"\n                            + "document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('button,a,[role=button]'):null;if(t&&/settings/i.test(t.innerText||t.textContent||'')){setTimeout(connectKichsFingerprint,350);setTimeout(connectKichsFingerprint,1000);}},true);"
                             // Run the fingerprint wiring once after page load.
                             // Avoid a whole-document MutationObserver here: the
                             // student portal dynamically updates large sections,
