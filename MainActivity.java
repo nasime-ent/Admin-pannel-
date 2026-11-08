@@ -4,6 +4,7 @@ import android.app.AlertDialog;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
 import android.webkit.JavascriptInterface;
@@ -43,7 +44,15 @@ public class MainActivity extends FragmentActivity {
         webView = new WebView(this);
         webView.setFocusable(true);
         webView.setFocusableInTouchMode(true);
+        webView.setOnTouchListener((v, event) -> {
+            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                v.requestFocus();
+                getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+            }
+            return false;
+        });
         setContentView(webView);
+        webView.requestFocus(View.FOCUS_DOWN);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -121,7 +130,16 @@ public class MainActivity extends FragmentActivity {
             return true;
         }
         if (item.getItemId() == 3) {
-            webView.reload();
+            Toast.makeText(this, "Reloading KICHS app…", Toast.LENGTH_SHORT).show();
+            if (webView != null) {
+                webView.post(() -> {
+                    String currentUrl = webView.getUrl();
+                    webView.stopLoading();
+                    webView.requestFocus(View.FOCUS_DOWN);
+                    webView.loadUrl(currentUrl != null && currentUrl.startsWith("https://")
+                            ? currentUrl : APP_URL);
+                });
+            }
             return true;
         }
         return super.onOptionsItemSelected(item);
