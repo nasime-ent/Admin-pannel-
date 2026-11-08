@@ -4,6 +4,7 @@ import android.app.AlertDialog;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.WindowManager;
 import android.webkit.WebChromeClient;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
@@ -38,7 +39,10 @@ public class MainActivity extends FragmentActivity {
             getActionBar().setTitle("KICHS Student App");
         }
 
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         webView = new WebView(this);
+        webView.setFocusable(true);
+        webView.setFocusableInTouchMode(true);
         setContentView(webView);
 
         WebSettings settings = webView.getSettings();
@@ -61,9 +65,12 @@ public class MainActivity extends FragmentActivity {
                             + "var label=(b.innerText||b.textContent||'').trim().toLowerCase();"
                             + "var action=(b.getAttribute('onclick')||'').toLowerCase();"
                             + "if(label.indexOf('enroll fingerprint')!==-1||label.indexOf('set up / use fingerprint')!==-1||action.indexOf('checkkichsbiometricsupport')!==-1||action.indexOf('passkey')!==-1){"
+                            + "if(b.getAttribute('data-kichs-native-bound')!=='1'){"
                             + "b.removeAttribute('onclick');"
                             + "b.onclick=function(e){e.preventDefault();e.stopPropagation();if(s)s.textContent='Opening secure Android fingerprint verification…';if(window.KICHSBiometric&&window.KICHSBiometric.setupFingerprint){window.KICHSBiometric.setupFingerprint();}else if(s){s.textContent='Native fingerprint service is unavailable. Please reinstall the latest KICHS APK.';}return false;};"
                             + "b.innerHTML='<span class=\\\"material-icons\\\">fingerprint</span> Set up / Use Fingerprint';"
+                            + "b.setAttribute('data-kichs-native-bound','1');"
+                            + "}"
                             + "}"
                             + "});"
                             + "window.checkKichsBiometricSupport=function(){if(window.KICHSBiometric&&window.KICHSBiometric.setupFingerprint){window.KICHSBiometric.setupFingerprint();}else if(s){s.textContent='Native fingerprint service is unavailable. Please reinstall the latest KICHS APK.';}};"
