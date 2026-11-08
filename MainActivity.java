@@ -52,11 +52,25 @@ public class MainActivity extends FragmentActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 pageReady = true;
-                if (url != null && url.startsWith("https://kichs-app.pages.dev/")) {
+                if (url != null && url.startsWith("https://")) {
                     String bridgeScript = "(function(){"
-                            + "var btns=document.querySelectorAll('button[onclick=\\\"checkKichsBiometricSupport()\\\"]');"
-                            + "btns.forEach(function(b){b.innerHTML='<span class=\\\"material-icons\\\">fingerprint</span> Set up / Use Fingerprint';});"
-                            + "window.checkKichsBiometricSupport=function(){var s=document.getElementById('ksetBiometricStatus');if(s)s.textContent='Opening secure Android fingerprint verification…';if(window.KICHSBiometric){window.KICHSBiometric.setupFingerprint();}else if(s){s.textContent='Native fingerprint service is unavailable. Please update the KICHS app.';}};"
+                            + "function connectKichsFingerprint(){"
+                            + "var s=document.getElementById('ksetBiometricStatus');"
+                            + "var buttons=Array.prototype.slice.call(document.querySelectorAll('button'));"
+                            + "buttons.forEach(function(b){"
+                            + "var label=(b.innerText||b.textContent||'').trim().toLowerCase();"
+                            + "var action=(b.getAttribute('onclick')||'').toLowerCase();"
+                            + "if(label.indexOf('enroll fingerprint')!==-1||label.indexOf('set up / use fingerprint')!==-1||action.indexOf('checkkichsbiometricsupport')!==-1||action.indexOf('passkey')!==-1){"
+                            + "b.removeAttribute('onclick');"
+                            + "b.onclick=function(e){e.preventDefault();e.stopPropagation();if(s)s.textContent='Opening secure Android fingerprint verification…';if(window.KICHSBiometric&&window.KICHSBiometric.setupFingerprint){window.KICHSBiometric.setupFingerprint();}else if(s){s.textContent='Native fingerprint service is unavailable. Please reinstall the latest KICHS APK.';}return false;};"
+                            + "b.innerHTML='<span class=\\\"material-icons\\\">fingerprint</span> Set up / Use Fingerprint';"
+                            + "}"
+                            + "});"
+                            + "window.checkKichsBiometricSupport=function(){if(window.KICHSBiometric&&window.KICHSBiometric.setupFingerprint){window.KICHSBiometric.setupFingerprint();}else if(s){s.textContent='Native fingerprint service is unavailable. Please reinstall the latest KICHS APK.';}};"
+                            + "}"
+                            + "connectKichsFingerprint();"
+                            + "var observer=new MutationObserver(connectKichsFingerprint);"
+                            + "observer.observe(document.documentElement,{childList:true,subtree:true});"
                             + "})();";
                     view.evaluateJavascript(bridgeScript, null);
                 }
