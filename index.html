@@ -204,6 +204,35 @@ html.kic-dark .chrome-btn:hover{background:#222c36!important}
 
 /* Keep the embedded Admin Panel header and tabs in place while the selected tab content scrolls independently. */
 #adminPage .admin-tab-content{max-height:calc(100vh - 260px);max-height:calc(100dvh - 260px);min-height:160px;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+
+/* KICHS chat/member directory: follow the active app theme, including
+   the system-default theme and the student's explicit theme selection. */
+html.kic-dark #members,
+html.kic-dark #membersPage,
+html.kic-dark #members .member,
+html.kic-dark .chat-list,
+html.kic-dark .chat-list .chat-item {
+  background-color:#171d24 !important;
+  color:#edf3f8 !important;
+  border-color:#35414d !important;
+}
+html.kic-dark #members .member {
+  border-bottom-color:#35414d !important;
+}
+html.kic-dark #members .member b,
+html.kic-dark .chat-list .chat-item b,
+html.kic-dark .chat-list .chat-meta {
+  color:#edf3f8 !important;
+}
+html.kic-dark #members .member small,
+html.kic-dark .chat-list .chat-preview {
+  color:#9aa7b4 !important;
+}
+html.kic-dark .chat-list .chat-item *,
+html.kic-dark #members .member * {
+  -webkit-text-fill-color:inherit;
+}
+
 </style>
 
 <style id="kichs-payment-css">
