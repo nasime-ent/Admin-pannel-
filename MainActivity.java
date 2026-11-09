@@ -64,8 +64,10 @@ public class MainActivity extends FragmentActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Run the student portal full-screen: its native title/overflow bar
+        // duplicated controls already available in the in-app Settings screen.
         if (getActionBar() != null) {
-            getActionBar().setTitle("KICHS Student App");
+            getActionBar().hide();
         }
 
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
@@ -209,10 +211,8 @@ public class MainActivity extends FragmentActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(0, 1, 0, "Enable fingerprint lock");
-        menu.add(0, 2, 1, "Disable fingerprint lock");
-        menu.add(0, 3, 2, "Reload app");
-        return true;
+        // Fingerprint controls live in Settings; do not show a duplicate menu.
+        return false;
     }
 
     @Override
