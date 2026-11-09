@@ -474,18 +474,13 @@ html.kic-dark #chatWindow .chat-compose input { background:#0f141a !important; c
 html.kic-dark #chatWindow .chat-compose input::placeholder { color:#9aa7b4 !important; }
 </style>
 
-<style id="kichs-chat-theme-fix">
-/* Keep chat surfaces consistent with the selected app theme. */
-html.kic-dark .chat-window,html.kic-dark .chat-item,html.kic-dark .chat-compose{background:#171d24!important;color:#edf3f8!important;border-color:#35414d!important}
-html.kic-dark .chat-list{color:#edf3f8!important}
-html.kic-dark .chat-item{border-color:#35414d!important}
-html.kic-dark .chat-avatar{background:#24384d!important;color:#9bc8ff!important}
-html.kic-dark .chat-preview,html.kic-dark .empty-chat{color:#aeb9c5!important}
-html.kic-dark .bubble.theirs{background:#252d36!important;color:#edf3f8!important;border-color:#3a4652!important}
-html.kic-dark .chat-compose{border-top-color:#35414d!important}
-html.kic-dark .chat-compose input{background:#0f141a!important;color:#edf3f8!important;border-color:#465463!important;-webkit-text-fill-color:#edf3f8!important}
-html:not(.kic-dark) .chat-window{background:#f5f9fd}
-html:not(.kic-dark) .chat-item{background:#fff;color:#172b4d}
+<style id="kichs-remove-redundant-topbar-v1">
+/* Remove only the redundant app title and its three-dot menu.
+   Preserve the remaining header controls and fingerprint security in Settings. */
+.top .brand,
+.top .actions button[onclick="toggleMenu()"] {
+  display: none !important;
+}
 </style>
 </head>
 <body>
