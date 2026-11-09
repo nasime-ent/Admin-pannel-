@@ -31,6 +31,35 @@ jobs:
           unzip -q KICHS_Android_Complete_Project.zip -d extracted
           test -f extracted/KICHS_Android_Complete_Project/android/settings.gradle
           test -f extracted/KICHS_Android_Complete_Project/android/app/build.gradle
+      - name: Configure secure APK file sharing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest = Path("extracted/KICHS_Android_Complete_Project/android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text(encoding="utf-8")
+          provider = """
+                  <provider
+                      android:name="androidx.core.content.FileProvider"
+                      android:authorities="${applicationId}.fileprovider"
+                      android:exported="false"
+                      android:grantUriPermissions="true">
+                      <meta-data
+                          android:name="android.support.FILE_PROVIDER_PATHS"
+                          android:resource="@xml/kichs_file_paths" />
+                  </provider>
+          """
+          if "androidx.core.content.FileProvider" not in text:
+              text = text.replace("</application>", provider + "\\n    </application>")
+              manifest.write_text(text, encoding="utf-8")
+          paths = Path("extracted/KICHS_Android_Complete_Project/android/app/src/main/res/xml/kichs_file_paths.xml")
+          paths.parent.mkdir(parents=True, exist_ok=True)
+          paths.write_text("""<?xml version="1.0" encoding="utf-8"?>
+          <paths xmlns:android="http://schemas.android.com/apk/res/android">
+              <cache-path name="shared_apk" path="shared_apk/" />
+          </paths>
+          """, encoding="utf-8")
+          PY
+
       - name: Use connected native biometric implementation
         run: |
           cp MainActivity.java extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
