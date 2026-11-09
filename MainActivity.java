@@ -451,8 +451,8 @@ public class MainActivity extends FragmentActivity {
                         new AlertDialog.Builder(MainActivity.this)
                                 .setTitle("KICHS update available")
                                 .setMessage("Version " + latestVersionName
-                                        + " is ready to install.\\n\\n" + releaseNotes
-                                        + "\\n\\nDownload the latest KICHS Student App now?")
+                                        + " is ready to install.\n\n" + releaseNotes
+                                        + "\n\nDownload the latest KICHS Student App now?")
                                 .setPositiveButton("DOWNLOAD UPDATE", (dialog, which) -> {
                                     try {
                                         Intent intent = new Intent(Intent.ACTION_VIEW,
