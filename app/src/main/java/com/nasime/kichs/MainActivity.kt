@@ -14,6 +14,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.widget.Button
 import android.widget.LinearLayout
@@ -126,6 +127,11 @@ class MainActivity : AppCompatActivity() {
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
 
+        // Expose the native Android biometric prompt to the Security Settings button in the web app.
+        // The page calls KICHSBiometric.setupFingerprint(); without this bridge it only shows
+        // the misleading message asking the student to use the installed Android app.
+        webView.addJavascriptInterface(KichsBiometricBridge(), "KICHSBiometric")
+
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
                 webView: WebView,
@@ -186,6 +192,13 @@ class MainActivity : AppCompatActivity() {
         if (!hasLoaded) {
             webView.loadUrl(appUrl)
             hasLoaded = true
+        }
+    }
+
+    private inner class KichsBiometricBridge {
+        @JavascriptInterface
+        fun setupFingerprint() {
+            runOnUiThread { enableBiometricLock() }
         }
     }
 
