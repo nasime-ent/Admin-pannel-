@@ -52,6 +52,16 @@ jobs:
           PY
           grep -q 'reliableSettingsFingerprintScript' extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
 
+      - name: Configure permanent Android debug signing key
+        env:
+          KICHS_DEBUG_KEYSTORE_BASE64: ${{ secrets.KICHS_DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KICHS_DEBUG_KEYSTORE_BASE64"
+          mkdir -p "$HOME/.android"
+          printf '%s' "$KICHS_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
