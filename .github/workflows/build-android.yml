@@ -47,8 +47,8 @@ jobs:
           if version_code < 1 or not version_name:
               raise SystemExit("Invalid app version metadata")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-              env.write(f"APP_VERSION_CODE={version_code}\\n")
-              env.write(f"APP_VERSION_NAME={version_name}\\n")
+              env.write(f"APP_VERSION_CODE={version_code}\n")
+              env.write(f"APP_VERSION_NAME={version_name}\n")
           PY
 
       - name: Set Android app version
@@ -58,8 +58,8 @@ jobs:
           from pathlib import Path
           gradle = Path("extracted/KICHS_Android_Complete_Project/android/app/build.gradle")
           source = gradle.read_text(encoding="utf-8")
-          source, code_count = re.subn(r"\\bversionCode\\s+\\d+", "versionCode " + os.environ["APP_VERSION_CODE"], source, count=1)
-          source, name_count = re.subn(r"""\\bversionName\\s+["'][^"']+["']""", 'versionName "' + os.environ["APP_VERSION_NAME"] + '"', source, count=1)
+          source, code_count = re.subn(r"\bversionCode\s+\d+", "versionCode " + os.environ["APP_VERSION_CODE"], source, count=1)
+          source, name_count = re.subn(r"""\bversionName\s+["'][^"']+["']""", 'versionName "' + os.environ["APP_VERSION_NAME"] + '"', source, count=1)
           if code_count != 1 or name_count != 1:
               raise SystemExit("Could not safely set versionCode/versionName in app/build.gradle")
           gradle.write_text(source, encoding="utf-8")
