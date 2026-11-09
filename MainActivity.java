@@ -1,6 +1,13 @@
 package ug.ac.kichs.student;
 
 import android.app.AlertDialog;
+import android.graphics.Color;
+import android.view.Gravity;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -30,6 +37,8 @@ public class MainActivity extends FragmentActivity {
     private static final String KEY_BIOMETRIC = "biometric_enabled";
 
     private WebView webView;
+    private FrameLayout rootLayout;
+    private View biometricGate;
     private boolean pageReady = false;
     private boolean promptShowing = false;
     private boolean firstLaunchCheckDone = false;
@@ -46,6 +55,7 @@ public class MainActivity extends FragmentActivity {
         // Use the WebView's own touch dispatcher directly. Do not intercept
         // touch events in an OnTouchListener; let WebView process taps,
         // scrolling and text-field gestures normally.
+        rootLayout = new FrameLayout(this);
         webView = new WebView(this) {
             @Override
             public boolean onTouchEvent(MotionEvent event) {
@@ -72,7 +82,12 @@ public class MainActivity extends FragmentActivity {
         webView.setClickable(true);
         webView.setEnabled(true);
         webView.setVerticalScrollBarEnabled(true);
-        setContentView(webView);
+        rootLayout.addView(webView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        setContentView(rootLayout);
+        if (isBiometricEnabled()) {
+            showNativeBiometricGate();
+        }
         webView.requestFocus(View.FOCUS_DOWN);
 
         WebSettings settings = webView.getSettings();
@@ -282,6 +297,9 @@ public class MainActivity extends FragmentActivity {
                     public void onAuthenticationSucceeded(
                             @NonNull BiometricPrompt.AuthenticationResult result) {
                         promptShowing = false;
+                        if (forUnlock) {
+                            hideNativeBiometricGate();
+                        }
                         if (forUnlock && webView != null) {
                             // A successful native fingerprint must also dismiss the
                             // student portal's PIN overlay and clear its lock session.
@@ -314,10 +332,9 @@ public class MainActivity extends FragmentActivity {
                             @NonNull CharSequence errString) {
                         promptShowing = false;
                         if (forUnlock) {
-                            // Never allow the student portal to remain open when
-                            // biometric authentication is cancelled or dismissed.
-                            // Keep the app protected by showing its PIN lock instead.
-                            openKichsPinLock();
+                            // Keep the native gate covering the WebView. The student
+                            // dashboard must not become visible when authentication is cancelled.
+                            showNativeBiometricGate();
                             if (errorCode != BiometricPrompt.ERROR_USER_CANCELED
                                     && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
                                 Toast.makeText(
@@ -359,6 +376,55 @@ public class MainActivity extends FragmentActivity {
         prompt.authenticate(builder.build());
     }
 
+    private void showNativeBiometricGate() {
+        if (rootLayout == null || isFinishing()) return;
+        if (biometricGate != null && biometricGate.getParent() != null) return;
+
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setGravity(Gravity.CENTER);
+        panel.setPadding(36, 48, 36, 48);
+        panel.setBackgroundColor(Color.rgb(8, 35, 72));
+
+        TextView title = new TextView(this);
+        title.setText("KICHS STUDENT APP");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(23);
+        title.setGravity(Gravity.CENTER);
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+
+        TextView message = new TextView(this);
+        message.setText("Your account is protected. Verify your fingerprint to continue.");
+        message.setTextColor(Color.WHITE);
+        message.setTextSize(16);
+        message.setGravity(Gravity.CENTER);
+        message.setPadding(0, 24, 0, 28);
+
+        Button retry = new Button(this);
+        retry.setText("UNLOCK WITH FINGERPRINT");
+        retry.setOnClickListener(v -> requestBiometricUnlock());
+
+        panel.addView(title, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        panel.addView(message, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        panel.addView(retry, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        biometricGate = panel;
+        rootLayout.addView(biometricGate, params);
+        biometricGate.bringToFront();
+    }
+
+    private void hideNativeBiometricGate() {
+        if (rootLayout != null && biometricGate != null) {
+            rootLayout.removeView(biometricGate);
+            biometricGate = null;
+        }
+    }
+
     private void openKichsPinLock() {
         if (webView != null) {
             webView.post(() -> webView.evaluateJavascript(
@@ -372,6 +438,9 @@ public class MainActivity extends FragmentActivity {
     protected void onResume() {
         super.onResume();
         appInForeground = true;
+        if (isBiometricEnabled()) {
+            showNativeBiometricGate();
+        }
         if (pageReady) {
             requestBiometricUnlock();
         }
