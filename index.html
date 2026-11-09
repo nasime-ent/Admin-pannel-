@@ -626,7 +626,7 @@ html.kic-dark .kset-about-block{border-color:#35414d}html.kic-dark .kset-fingerp
 <div class="news"><div class="newshead"><div class="nicon"><span class="material-icons">campaign</span></div><div><b>Welcome to Kiryokya College</b><div class="date">Official Announcement</div></div></div><p>Welcome to the official Kiryokya College communication platform. Stay updated with school information and important announcements.</p></div>
 </section>
 
-<section id="messagesPage" class="page"><button class="back" onclick="openPage('news')"><span class="material-icons">arrow_back</span>Back</button><h2>Messages</h2><div class="panel"><span class="material-icons" style="font-size:42px;color:#0b63ce">chat</span><p>Private student-to-student messaging will be connected to the secure realtime backend.</p></div></section>
+<section id="messagesPage" class="page"><button class="back" onclick="openPage('news')"><span class="material-icons">arrow_back</span>Back</button><h2>Student Chat</h2><p class="muted" style="margin:0 0 14px">Private conversations between verified KICHS students. Admin is not part of student chats.</p><div id="chatInbox" class="chat-list"><div class="panel">Loading your conversations…</div></div><button class="primary" style="margin-top:14px;width:100%" onclick="openPage('members')"><span class="material-icons" style="vertical-align:middle">person_search</span> Find a student to chat with</button></section>
 
 <section id="membersPage" class="page"><button class="back" onclick="openPage('news')"><span class="material-icons">arrow_back</span>Back</button><h2>Members</h2><input style="margin:14px 0" id="memberSearch" placeholder="Search members..." oninput="renderMembers(this.value)"><div id="members"></div></section>
 
@@ -1123,6 +1123,7 @@ menu.style.display="none";scrollTo(0,0);
 if(page==="resources")openResources();
 if(page==="files")renderOfflineFiles();
 if(page==="members")renderMembers(document.getElementById("memberSearch")?.value||"");
+ if(page==="messages"&&window.loadKichsChatInbox)window.loadKichsChatInbox();
 }
 let kichsMembersCache=null;
 async function renderMembers(q=""){
@@ -1155,8 +1156,9 @@ rows.forEach(st=>{
     ? KICHSProfileBadgeHTML(st.verification_tick,st.verification_status) : "";
   const d=document.createElement("div");
   d.className="member";
-  d.innerHTML='<div class="avatar" style="overflow:hidden;flex:0 0 44px">'+avatar+'</div><div style="min-width:0"><b>'+esc(name)+' '+tick+'</b><small>'+esc(st.set_name||"")+'</small></div>';
-  box.appendChild(d);
+  d.innerHTML='<div class="avatar" style="overflow:hidden;flex:0 0 44px">'+avatar+'</div><div style="min-width:0;flex:1"><b>'+esc(name)+' '+tick+'</b><small>'+esc(st.set_name||"")+'</small></div><button class="msg-btn" type="button" aria-label="Message student" title="Message student"><i class="material-icons">chat</i></button>';
+   d.querySelector(".msg-btn").onclick=()=>openPrivateChat({user_id:st.user_id,name:st.full_name,set:st.set_name,gender:st.gender});
+   box.appendChild(d);
 });
 }
 function toggleMenu(){menu.style.display=menu.style.display==="block"?"none":"block"}
@@ -1535,117 +1537,70 @@ if(current)start();else auth.style.display="flex";
   </div>
 </div>
 
+
 <script>
-/* Built-in Messenger demo layer.
-   For real cross-device delivery, replace the localStorage transport with
-   a secure realtime backend/API. */
+/* KICHS private student messenger — Supabase-backed, cross-device and realtime. */
 (function(){
-  const KEY="kiryokya_private_messages_v1";
-  const DEMO_KEY="kiryokya_users";
-  window.chatState={receiver:null};
-
-  function getUsers(){
-    try{return JSON.parse(localStorage.getItem(DEMO_KEY)||"[]")}catch(e){return []}
-  }
-  function currentUser(){
-    try{return JSON.parse(localStorage.getItem("kchs_current")||"null")}catch(e){return null}
-  }
-  function messages(){
-    try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return []}
-  }
-  function saveMessages(a){localStorage.setItem(KEY,JSON.stringify(a))}
-  function uid(u){return u && (u.contact||u.id||u.name)}
-  function conversationId(a,b){return [uid(a),uid(b)].sort().join("::")}
-  function initials(name){
-    return String(name||"?").trim().split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase()
-  }
-  function esc(x){return String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-
-  window.openPrivateChat=function(member){
-    const me=currentUser();
-    if(!me){alert("Please sign in first.");return}
-    if(!member || uid(member)===uid(me)){alert("You cannot message yourself.");return}
-    window.chatState.receiver=member;
-    document.getElementById("chatPersonName").textContent=member.name||"Member";
-    document.getElementById("chatPersonSub").textContent=(member.set||"") + (member.gender?" • "+member.gender:"") + " • Private chat";
-    document.getElementById("chatWindow").style.display="flex";
-    renderPrivateChat();
-    setTimeout(()=>document.getElementById("chatInput").focus(),80);
-  }
-
-  window.closePrivateChat=function(){
-    document.getElementById("chatWindow").style.display="none";
-    window.chatState.receiver=null;
-  }
-
-  window.sendPrivateMessage=function(){
-    const input=document.getElementById("chatInput");
-    const text=input.value.trim();
-    const me=currentUser(), other=window.chatState.receiver;
-    if(!text||!me||!other)return;
-    const arr=messages();
-    arr.push({
-      id:Date.now()+"_"+Math.random().toString(36).slice(2),
-      conversationId:conversationId(me,other),
-      sender:uid(me),
-      receiver:uid(other),
-      text:text,
-      time:new Date().toISOString(),
-      read:false
-    });
-    saveMessages(arr);
-    input.value="";
-    renderPrivateChat();
-  }
-
-  window.renderPrivateChat=function(){
-    const body=document.getElementById("chatBody");
-    const me=currentUser(), other=window.chatState.receiver;
-    if(!me||!other)return;
-    const cid=conversationId(me,other);
-    const arr=messages().filter(x=>x.conversationId===cid);
-    if(!arr.length){
-      body.innerHTML='<div class="empty-chat"><i class="material-icons" style="font-size:44px">chat</i><div>Start a private conversation</div></div>';
-      return;
-    }
-    body.innerHTML=arr.map(m=>{
-      const mine=m.sender===uid(me);
-      return '<div class="bubble '+(mine?'mine':'theirs')+'">'+esc(m.text)+'</div>';
-    }).join("");
-    body.scrollTop=body.scrollHeight;
-  }
-
-  window.openChatForMember=function(contact){
-    const member=getUsers().find(u=>uid(u)===contact);
-    if(member)openPrivateChat(member);
-    else alert("Member account could not be found.");
-  }
-
-  window.renderMemberMessageButtons=function(){
-    // Add a message button to member cards when the existing prototype exposes .member-card.
-    document.querySelectorAll(".member-card").forEach(card=>{
-      if(card.querySelector(".msg-btn"))return;
-      const contact=card.dataset.contact;
-      if(!contact)return;
-      const actions=card.querySelector(".member-actions")||card;
-      const btn=document.createElement("button");
-      btn.className="msg-btn";
-      btn.title="Message this member";
-      btn.innerHTML='<i class="material-icons">chat</i>';
-      btn.onclick=(e)=>{e.stopPropagation();openChatForMember(contact)};
-      actions.appendChild(btn);
-    });
-  }
-
-  document.addEventListener("keydown",e=>{
-    if(e.key==="Enter" && document.activeElement===document.getElementById("chatInput")){
-      e.preventDefault();sendPrivateMessage();
-    }
-    if(e.key==="Escape")closePrivateChat();
-  });
-
-  // Expose helpers for the prototype's existing Members page.
-  window.KiryokyaMessenger={openPrivateChat,openChatForMember,renderPrivateChat};
+ window.chatState={receiver:null,conversationId:null,channel:null,inboxChannel:null};
+ const $=id=>document.getElementById(id);
+ const safe=x=>String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+ const meId=()=>current?.user_id||null;
+ const profileFor=id=>{const p=(kichsMembersCache||[]).find(x=>x.user_id===id);return p?{user_id:p.user_id,name:p.full_name||"Student",set:p.set_name||"",gender:p.gender||""}:{user_id:id,name:"KICHS Student",set:"",gender:""};};
+ const formatTime=v=>{try{return new Date(v).toLocaleString([],{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});}catch(_){return "";}};
+ async function ensureDirectory(){if(!kichsMembersCache)await renderMembers("");return kichsMembersCache||[];}
+ async function findOrCreateConversation(otherId){
+  const me=meId();if(!me||!otherId||me===otherId)throw new Error("Choose another student to start a chat.");
+  const filter="member_one.eq."+me+",member_two.eq."+me;
+  const {data:rows,error}=await supabaseClient.from("conversations").select("id,member_one,member_two").or(filter);
+  if(error)throw error;const found=(rows||[]).find(c=>c.member_one===otherId||c.member_two===otherId);if(found)return found.id;
+  const [a,b]=[me,otherId].sort();
+  const {data:created,error:createError}=await supabaseClient.from("conversations").insert({member_one:a,member_two:b}).select("id").single();
+  if(!createError&&created)return created.id;
+  const {data:retry,error:retryError}=await supabaseClient.from("conversations").select("id,member_one,member_two").or(filter);
+  const match=(retry||[]).find(c=>c.member_one===otherId||c.member_two===otherId);if(match)return match.id;
+  throw createError||retryError||new Error("Could not start this conversation.");
+ }
+ window.openPrivateChat=async function(member){
+  if(!meId()){alert("Please sign in first.");return;}if(!member?.user_id||member.user_id===meId()){alert("You cannot message yourself.");return;}
+  try{
+   const directory=await ensureDirectory(),found=directory.find(x=>x.user_id===member.user_id);
+   if(!found||found.status!=="active"||found.verification_status!=="verified")throw new Error("Only active, verified students can chat.");
+   const person={user_id:found.user_id,name:found.full_name||"Student",set:found.set_name||"",gender:found.gender||""};
+   const cid=await findOrCreateConversation(person.user_id);window.chatState.receiver=person;window.chatState.conversationId=cid;
+   $("chatPersonName").textContent=person.name;$("chatPersonSub").textContent=(person.set||"")+(person.gender?" • "+person.gender:"")+" • Private student chat";
+   $("chatWindow").style.display="flex";await renderPrivateChat();subscribeConversation(cid);setTimeout(()=>$("chatInput").focus(),80);
+  }catch(e){console.error("KICHS chat open:",e);alert(e.message||"Could not open this chat. Please try again.");}
+ };
+ window.closePrivateChat=function(){$("chatWindow").style.display="none";window.chatState.receiver=null;window.chatState.conversationId=null;if(window.chatState.channel){supabaseClient.removeChannel(window.chatState.channel);window.chatState.channel=null;}};
+ function subscribeConversation(cid){if(window.chatState.channel)supabaseClient.removeChannel(window.chatState.channel);window.chatState.channel=supabaseClient.channel("kichs-chat-"+cid).on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:"conversation_id=eq."+cid},payload=>{if(payload.new?.conversation_id===window.chatState.conversationId)renderPrivateChat();}).subscribe();}
+ window.sendPrivateMessage=async function(){
+  const input=$("chatInput"),message=input.value.trim(),cid=window.chatState.conversationId;if(!message||!cid||!meId())return;
+  if(message.length>4000){alert("Messages must be 4,000 characters or fewer.");return;}const button=$("chatWindow").querySelector(".chat-compose button");if(button)button.disabled=true;
+  try{const {error}=await supabaseClient.from("messages").insert({conversation_id:cid,sender_id:meId(),message});if(error)throw error;input.value="";await renderPrivateChat();}
+  catch(e){console.error("KICHS send message:",e);alert("Message was not sent: "+(e.message||"Please try again."));}
+  finally{if(button)button.disabled=false;input.focus();}
+ };
+ window.renderPrivateChat=async function(){
+  const body=$("chatBody"),cid=window.chatState.conversationId;if(!body||!cid)return;body.innerHTML='<div class="empty-chat">Loading messages…</div>';
+  const {data,error}=await supabaseClient.from("messages").select("id,sender_id,message,created_at").eq("conversation_id",cid).order("created_at",{ascending:true}).limit(300);
+  if(error){body.innerHTML='<div class="empty-chat">Messages could not be loaded. Check your connection and try again.</div>';console.error(error);return;}
+  if(!data?.length){body.innerHTML='<div class="empty-chat"><i class="material-icons" style="font-size:44px">chat</i><div>Start a private conversation</div></div>';return;}
+  body.innerHTML=data.map(m=>'<div class="bubble '+(m.sender_id===meId()?"mine":"theirs")+'">'+safe(m.message)+'<div style="font-size:10px;opacity:.72;margin-top:4px;text-align:right">'+safe(formatTime(m.created_at))+'</div></div>').join("");body.scrollTop=body.scrollHeight;
+ };
+ async function loadInbox(){
+  const box=$("chatInbox");if(!box)return;if(!meId()){box.innerHTML='<div class="panel">Please sign in to use Chat.</div>';return;}box.innerHTML='<div class="panel">Loading your conversations…</div>';
+  try{
+   const {data:convs,error}=await supabaseClient.from("conversations").select("id,member_one,member_two,updated_at").or("member_one.eq."+meId()+",member_two.eq."+meId()).order("updated_at",{ascending:false});if(error)throw error;
+   if(!convs?.length){box.innerHTML='<div class="panel" style="text-align:center"><span class="material-icons" style="font-size:38px;color:#0b63ce">forum</span><p>No conversations yet.</p><small>Choose a student from Members to start a private chat.</small></div>';return;}
+   const cards=await Promise.all(convs.map(async c=>{const otherId=c.member_one===meId()?c.member_two:c.member_one,person=profileFor(otherId);const {data:latest}=await supabaseClient.from("messages").select("message,created_at").eq("conversation_id",c.id).order("created_at",{ascending:false}).limit(1).maybeSingle();return {c,person,latest};}));
+   cards.sort((a,b)=>new Date(b.latest?.created_at||b.c.updated_at)-new Date(a.latest?.created_at||a.c.updated_at));box.innerHTML="";
+   cards.forEach(({c,person,latest})=>{const row=document.createElement("button");row.type="button";row.className="chat-item";row.style.width="100%";const initials=(person.name||"S").trim().split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase();row.innerHTML='<div class="chat-avatar">'+safe(initials)+'</div><div class="chat-meta"><b>'+safe(person.name)+'</b><div class="chat-preview">'+safe(latest?.message||"No messages yet")+'</div></div><small style="color:#718096">'+safe(latest?formatTime(latest.created_at):"")+'</small>';row.onclick=()=>openPrivateChat(person);box.appendChild(row);});
+  }catch(e){console.error("KICHS chat inbox:",e);box.innerHTML='<div class="panel">Your conversations could not be loaded. Please try again.</div>';}
+ }
+ function subscribeInbox(){if(window.chatState.inboxChannel)return;window.chatState.inboxChannel=supabaseClient.channel("kichs-chat-inbox-"+meId()).on("postgres_changes",{event:"*",schema:"public",table:"conversations"},()=>loadInbox()).on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},()=>loadInbox()).subscribe();}
+ window.loadKichsChatInbox=async function(){await ensureDirectory();await loadInbox();subscribeInbox();};
+ document.addEventListener("keydown",e=>{if(e.key==="Enter"&&document.activeElement===$("chatInput")){e.preventDefault();sendPrivateMessage();}if(e.key==="Escape"&&$("chatWindow").style.display==="flex")closePrivateChat();});
+ window.KiryokyaMessenger={openPrivateChat,renderPrivateChat,loadInbox};
 })();
 </script>
 
