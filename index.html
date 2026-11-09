@@ -233,6 +233,30 @@ html.kic-dark #members .member * {
   -webkit-text-fill-color:inherit;
 }
 
+
+/* Ensure the chat conversation view and its surrounding panels inherit dark mode. */
+html.kic-dark #chatView,
+html.kic-dark #chatView .panel,
+html.kic-dark #chatView .chat-list,
+html.kic-dark #chatView .chat-item,
+html.kic-dark #chatView .chat-compose,
+html.kic-dark #chatView .chat-body {
+  background-color:#171d24 !important;
+  color:#edf3f8 !important;
+  border-color:#35414d !important;
+}
+html.kic-dark #chatView .chat-item b,
+html.kic-dark #chatView .chat-meta,
+html.kic-dark #chatView h2,
+html.kic-dark #chatView p {color:#edf3f8 !important}
+html.kic-dark #chatView .chat-preview {color:#9aa7b4 !important}
+html.kic-dark #chatView input {
+ background:#111820 !important;color:#edf3f8 !important;
+ border-color:#35414d !important;-webkit-text-fill-color:#edf3f8 !important
+}
+html.kic-dark .chat-window,
+html.kic-dark .chat-body {background:#0f141a !important}
+html.kic-dark .bubble.theirs {background:#171d24 !important;color:#edf3f8 !important;border-color:#35414d !important}
 </style>
 
 <style id="kichs-payment-css">
