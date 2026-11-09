@@ -12,6 +12,7 @@ on:
       - 'MainActivity.java'
       - 'fingerprint-settings-inject.js'
       - 'app-update.json'
+      - 'kichs-logo.png'
 
 permissions:
   contents: write
@@ -35,6 +36,63 @@ jobs:
           unzip -q KICHS_Android_Complete_Project.zip -d extracted
           test -f extracted/KICHS_Android_Complete_Project/android/settings.gradle
           test -f extracted/KICHS_Android_Complete_Project/android/app/build.gradle
+
+      - name: Install official KICHS launcher icon
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+
+          root = Path("extracted/KICHS_Android_Complete_Project/android/app/src/main")
+          source = Path("kichs-logo.png")
+          if not source.is_file():
+              raise SystemExit("Official school logo kichs-logo.png is missing from repository root")
+
+          logo = Image.open(source).convert("RGBA")
+          # Keep the complete school crest and motto visible inside a white,
+          # rounded-square launcher tile.
+          sizes = {
+              "mipmap-mdpi": 48,
+              "mipmap-hdpi": 72,
+              "mipmap-xhdpi": 96,
+              "mipmap-xxhdpi": 144,
+              "mipmap-xxxhdpi": 192,
+          }
+          for folder, size in sizes.items():
+              target = root / "res" / folder
+              target.mkdir(parents=True, exist_ok=True)
+              tile = Image.new("RGBA", (size, size), (255, 255, 255, 255))
+              fitted = logo.copy()
+              fitted.thumbnail((size, size), Image.Resampling.LANCZOS)
+              tile.alpha_composite(fitted, ((size-fitted.width)//2, (size-fitted.height)//2))
+              mask = Image.new("L", (size, size), 0)
+              ImageDraw.Draw(mask).rounded_rectangle(
+                  (0, 0, size-1, size-1), radius=max(2, round(size*0.22)), fill=255
+              )
+              tile.putalpha(mask)
+              tile.save(target / "ic_launcher.png")
+              tile.save(target / "ic_launcher_round.png")
+
+          manifest = root / "AndroidManifest.xml"
+          xml = manifest.read_text(encoding="utf-8")
+          app = re.search(r"<application\\b[^>]*>", xml)
+          if not app:
+              raise SystemExit("Could not find the Android application element")
+          tag = app.group(0)
+          for attr, value in (("android:icon", "@mipmap/ic_launcher"),
+                              ("android:roundIcon", "@mipmap/ic_launcher_round")):
+              pattern = rf'\\b{re.escape(attr)}\\s*=\\s*["'][^"']*["']'
+              replacement = f'{attr}="{value}"'
+              if re.search(pattern, tag):
+                  tag = re.sub(pattern, replacement, tag, count=1)
+              else:
+                  tag = tag[:-1] + f' {replacement}>'
+          xml = xml[:app.start()] + tag + xml[app.end():]
+          manifest.write_text(xml, encoding="utf-8")
+          print("Configured official KICHS crest as Android launcher icon.")
+          PY
 
       - name: Load app version
         run: |
