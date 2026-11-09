@@ -313,14 +313,19 @@ public class MainActivity extends FragmentActivity {
                             int errorCode,
                             @NonNull CharSequence errString) {
                         promptShowing = false;
-                        if (forUnlock && errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                        if (forUnlock) {
+                            // Never allow the student portal to remain open when
+                            // biometric authentication is cancelled or dismissed.
+                            // Keep the app protected by showing its PIN lock instead.
                             openKichsPinLock();
-                        } else if (errorCode != BiometricPrompt.ERROR_USER_CANCELED) {
-                            Toast.makeText(
-                                    MainActivity.this,
-                                    errString,
-                                    Toast.LENGTH_SHORT
-                            ).show();
+                            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED
+                                    && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                                Toast.makeText(
+                                        MainActivity.this,
+                                        errString,
+                                        Toast.LENGTH_SHORT
+                                ).show();
+                            }
                         }
                     }
 
