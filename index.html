@@ -1137,7 +1137,7 @@ try{
   // The RPC applies the directory rules server-side and excludes Admin accounts.
   const {data:students,error}=await supabaseClient.rpc("get_kichs_student_directory");
   if(error)throw error;
-  kichsMembersCache=(students||[]).filter(st=>st.user_id);
+  kichsMembersCache=(students||[]).filter(st=>st.user_id&&st.user_id!==current?.user_id);
 }catch(err){
   box.innerHTML='<div class="panel">Members could not be loaded securely. Please try again later.</div>';
   console.error("KICHS Members load error:",err);
