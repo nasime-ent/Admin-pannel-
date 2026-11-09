@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - 'app/**'
+      - 'index.html'
       - '*.gradle.kts'
       - 'gradle.properties'
       - '.github/workflows/build-android.yml'
