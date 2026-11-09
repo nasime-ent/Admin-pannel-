@@ -2495,11 +2495,17 @@ function enrollKichsNativeFingerprint(){
     out.textContent='Fingerprint enrollment is available in the installed KICHS Android app. Your PIN/password lock remains available.';
     return;
   }
+  if(!window.KICHSBiometric || typeof window.KICHSBiometric.setupFingerprint !== 'function'){
+    out.textContent='Native fingerprint support is unavailable in this app version. Please install the latest KICHS Android APK.';
+    return;
+  }
   out.textContent='Opening secure Android fingerprint enrollment…';
   try{
-    window.location.href='kichs://fingerprint/enroll';
-    setTimeout(()=>{if(out.textContent==='Opening secure Android fingerprint enrollment…')out.textContent='If the fingerprint prompt did not open, make sure you are using the installed KICHS Android app.';},1800);
-  }catch(_){out.textContent='Could not open fingerprint enrollment. Please use the installed KICHS Android app.';}
+    window.KICHSBiometric.setupFingerprint();
+    setTimeout(()=>{if(out.textContent==='Opening secure Android fingerprint enrollment…')out.textContent='If the Android fingerprint prompt does not appear, please check that a fingerprint is enrolled in your phone settings.';},5000);
+  }catch(error){
+    out.textContent='Could not open fingerprint enrollment: '+(error && error.message ? error.message : 'Please try again.');
+  }
 }
 function renderKichsAboutPage(){
   const logo=document.getElementById('ksetCollegeLogo');const source=document.querySelector('.brand .mini');if(logo&&source&&source.src)logo.src=source.src;
