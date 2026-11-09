@@ -282,6 +282,14 @@ public class MainActivity extends FragmentActivity {
                     public void onAuthenticationSucceeded(
                             @NonNull BiometricPrompt.AuthenticationResult result) {
                         promptShowing = false;
+                        if (forUnlock && webView != null) {
+                            // A successful native fingerprint must also dismiss the
+                            // student portal's PIN overlay and clear its lock session.
+                            webView.post(() -> webView.evaluateJavascript(
+                                    "if(typeof unlockKichsStudentApp==='function'){unlockKichsStudentApp();}",
+                                    null
+                            ));
+                        }
                         if (enableAfterSuccess) {
                             setBiometricEnabled(true);
                             Toast.makeText(
