@@ -87,7 +87,7 @@ public class MainActivity extends FragmentActivity {
             public void onPageFinished(WebView view, String url) {
                 pageReady = true;
                 // onResume can run before the WebView finishes its first load.
-                // If fingerprint protection is enabled, prompt now that the page is ready.
+                // If fingerprint protection is enabled, prompt now that the page is ready. This also handles cold starts.
                 if (appInForeground) {
                     requestBiometricUnlock();
                 }
