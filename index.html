@@ -473,6 +473,15 @@ html.kic-dark #chatWindow .chat-compose { background:#171d24 !important; border-
 html.kic-dark #chatWindow .chat-compose input { background:#0f141a !important; color:#edf3f8 !important; border-color:#35414d !important; -webkit-text-fill-color:#edf3f8 !important; caret-color:#66a9ff; }
 html.kic-dark #chatWindow .chat-compose input::placeholder { color:#9aa7b4 !important; }
 </style>
+
+<style id="kichs-remove-redundant-topbar-v1">
+/* Remove only the redundant app title and its three-dot menu.
+   Preserve the remaining header controls and fingerprint security in Settings. */
+.top .brand,
+.top .actions button[onclick="toggleMenu()"] {
+  display: none !important;
+}
+</style>
 </head>
 <body>
 
