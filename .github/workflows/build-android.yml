@@ -49,7 +49,7 @@ jobs:
                   </provider>
           """
           if "androidx.core.content.FileProvider" not in text:
-              text = text.replace("</application>", provider + "\\n    </application>")
+              text = text.replace("</application>", provider + "\n    </application>")
               manifest.write_text(text, encoding="utf-8")
           paths = Path("extracted/KICHS_Android_Complete_Project/android/app/src/main/res/xml/kichs_file_paths.xml")
           paths.parent.mkdir(parents=True, exist_ok=True)
