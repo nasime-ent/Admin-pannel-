@@ -77,19 +77,24 @@ jobs:
 
           manifest = root / "AndroidManifest.xml"
           xml = manifest.read_text(encoding="utf-8")
-          app = re.search(r"<application\\b[^>]*>", xml)
-          if not app:
+          app_start = xml.find("<application")
+          app_end = xml.find(">", app_start)
+          if app_start < 0 or app_end < 0:
               raise SystemExit("Could not find the Android application element")
-          tag = app.group(0)
+          tag = xml[app_start:app_end+1]
           for attr, value in (("android:icon", "@mipmap/ic_launcher"),
                               ("android:roundIcon", "@mipmap/ic_launcher_round")):
-              pattern = rf'\\b{re.escape(attr)}\\s*=\\s*["'][^"']*["']'
               replacement = f'{attr}="{value}"'
-              if re.search(pattern, tag):
-                  tag = re.sub(pattern, replacement, tag, count=1)
+              pos = tag.find(attr + "=")
+              if pos >= 0:
+                  value_start = tag.find('"', pos)
+                  value_end = tag.find('"', value_start + 1)
+                  if value_start < 0 or value_end < 0:
+                      raise SystemExit(f"Malformed {attr} in AndroidManifest.xml")
+                  tag = tag[:pos] + replacement + tag[value_end+1:]
               else:
                   tag = tag[:-1] + f' {replacement}>'
-          xml = xml[:app.start()] + tag + xml[app.end():]
+          xml = xml[:app_start] + tag + xml[app_end+1:]
           manifest.write_text(xml, encoding="utf-8")
           print("Configured official KICHS crest as Android launcher icon.")
           PY
