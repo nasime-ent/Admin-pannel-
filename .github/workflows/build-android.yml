@@ -9,6 +9,7 @@ on:
       - 'KICHS_Android_Complete_Project.zip'
       - '.github/workflows/build-android.yml'
       - 'MainActivity.java'
+      - 'fingerprint-settings-inject.js'
 
 jobs:
   build:
