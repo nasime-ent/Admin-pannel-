@@ -35,6 +35,13 @@ import androidx.biometric.BiometricPrompt;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
+import android.content.pm.PackageInfo;
+import android.os.Build;
+import org.json.JSONObject;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.concurrent.Executor;
 
 public class MainActivity extends FragmentActivity {
@@ -164,6 +171,7 @@ public class MainActivity extends FragmentActivity {
         webView.addJavascriptInterface(new KichsBiometricBridge(), "KICHSBiometric");
         webView.setWebChromeClient(new WebChromeClient());
         webView.loadUrl(APP_URL);
+        checkForAppUpdate();
     }
 
     @Override
@@ -387,6 +395,85 @@ public class MainActivity extends FragmentActivity {
             builder.setNegativeButtonText("Cancel");
         }
         prompt.authenticate(builder.build());
+    }
+
+
+    private static final String UPDATE_MANIFEST_URL =
+            "https://raw.githubusercontent.com/nasime-ent/Admin-pannel-/android-apk-setup/app-update.json";
+    private static final String UPDATE_PREFS = "kichs_app_update_check";
+    private static final long UPDATE_CHECK_INTERVAL_MS = 30L * 60L * 1000L;
+
+    private void checkForAppUpdate() {
+        long now = System.currentTimeMillis();
+        android.content.SharedPreferences prefs =
+                getSharedPreferences(UPDATE_PREFS, MODE_PRIVATE);
+        long lastCheck = prefs.getLong("last_check", 0L);
+        if (now - lastCheck < UPDATE_CHECK_INTERVAL_MS) return;
+        prefs.edit().putLong("last_check", now).apply();
+
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            try {
+                URL url = new URL(UPDATE_MANIFEST_URL + "?t=" + System.currentTimeMillis());
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(8000);
+                connection.setReadTimeout(8000);
+                connection.setUseCaches(false);
+                connection.setRequestProperty("Cache-Control", "no-cache");
+                if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) return;
+
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                try (InputStream input = connection.getInputStream()) {
+                    byte[] buffer = new byte[4096];
+                    int count;
+                    while ((count = input.read(buffer)) != -1) {
+                        output.write(buffer, 0, count);
+                    }
+                }
+
+                JSONObject manifest = new JSONObject(output.toString("UTF-8"));
+                long latestVersionCode = manifest.optLong("versionCode", 0L);
+                String latestVersionName = manifest.optString("versionName", "New version");
+                String releaseNotes = manifest.optString(
+                        "releaseNotes", "Improvements and fixes are available.");
+                String downloadUrl = manifest.optString(
+                        "downloadUrl",
+                        "https://github.com/nasime-ent/Admin-pannel-/releases/latest");
+
+                PackageInfo installed = getPackageManager().getPackageInfo(getPackageName(), 0);
+                long installedVersionCode = Build.VERSION.SDK_INT >= 28
+                        ? installed.getLongVersionCode() : installed.versionCode;
+
+                if (latestVersionCode > installedVersionCode) {
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("KICHS update available")
+                                .setMessage("Version " + latestVersionName
+                                        + " is ready to install.\\n\\n" + releaseNotes
+                                        + "\\n\\nDownload the latest KICHS Student App now?")
+                                .setPositiveButton("DOWNLOAD UPDATE", (dialog, which) -> {
+                                    try {
+                                        Intent intent = new Intent(Intent.ACTION_VIEW,
+                                                Uri.parse(downloadUrl));
+                                        startActivity(intent);
+                                    } catch (Exception e) {
+                                        Toast.makeText(MainActivity.this,
+                                                "Unable to open the update download page.",
+                                                Toast.LENGTH_LONG).show();
+                                    }
+                                })
+                                .setNegativeButton("LATER", (dialog, which) -> dialog.dismiss())
+                                .show();
+                    });
+                }
+            } catch (Exception ignored) {
+                // Update checks are optional; never interrupt normal sign-in or app use.
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }).start();
     }
 
     private void shareInstalledApk() {
