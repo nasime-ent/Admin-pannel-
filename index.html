@@ -472,6 +472,67 @@ html.kic-dark .kset-about-block{border-color:#35414d}html.kic-dark .kset-fingerp
 @media(max-width:380px){.kset-modal{padding:16px}.kset-theme-grid{gap:6px}.kset-theme-option{font-size:11px;padding:11px 4px}}
 </style>
 
+
+<style id="kichs-safe-topbar-chat-theme-v1">
+/* Remove the redundant title strip and its three-dot menu.
+   Keep the notification and profile controls in the existing header. */
+.top .brand,
+.top .actions button[onclick="toggleMenu()"] {
+  display:none !important;
+}
+/* Keep the private-chat view consistent with the app's selected/system theme. */
+.chat-window {
+  background:#f5f9fd;
+  color:#172b4d;
+  color-scheme:light;
+}
+.chat-body {
+  background:#f5f9fd;
+  color:#172b4d;
+}
+.chat-compose {
+  background:#fff;
+  border-top-color:#dbe8f5;
+}
+.chat-compose input {
+  background:#fff;
+  color:#172b4d;
+  border-color:#cbd9e8;
+  -webkit-text-fill-color:#172b4d;
+}
+.bubble.theirs {
+  background:#fff;
+  color:#172b4d;
+  border-color:#dbe8f5;
+}
+html.kic-dark .chat-window {
+  background:#0f141a !important;
+  color:#edf3f8 !important;
+  color-scheme:dark;
+}
+html.kic-dark .chat-body {
+  background:#0f141a !important;
+  color:#edf3f8 !important;
+}
+html.kic-dark .chat-compose {
+  background:#171d24 !important;
+  border-top-color:#35414d !important;
+}
+html.kic-dark .chat-compose input {
+  background:#111820 !important;
+  color:#edf3f8 !important;
+  -webkit-text-fill-color:#edf3f8 !important;
+  border-color:#46596c !important;
+}
+html.kic-dark .bubble.theirs {
+  background:#202a35 !important;
+  color:#edf3f8 !important;
+  border-color:#3a4a5b !important;
+}
+html.kic-dark .empty-chat {
+  color:#b5c3d1 !important;
+}
+</style>
 </head>
 <body>
 
