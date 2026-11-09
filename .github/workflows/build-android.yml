@@ -1,4 +1,5 @@
 name: Build KICHS Android APK
+# Rebuild includes fingerprint-to-PIN-overlay unlock fix
 
 on:
   workflow_dispatch:
