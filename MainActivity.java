@@ -23,6 +23,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.WebChromeClient;
+import android.webkit.ValueCallback;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -57,6 +58,8 @@ public class MainActivity extends FragmentActivity {
     private boolean promptShowing = false;
     private boolean firstLaunchCheckDone = false;
     private boolean appInForeground = false;
+    private static final int FILE_CHOOSER_REQUEST_CODE = 7421;
+    private ValueCallback<Uri[]> pendingFileChooserCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -169,7 +172,37 @@ public class MainActivity extends FragmentActivity {
             }
         });
         webView.addJavascriptInterface(new KichsBiometricBridge(), "KICHSBiometric");
-        webView.setWebChromeClient(new WebChromeClient());
+        webView.getSettings().setAllowContentAccess(true);
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(
+                    WebView view,
+                    ValueCallback<Uri[]> filePathCallback,
+                    FileChooserParams fileChooserParams) {
+                if (pendingFileChooserCallback != null) {
+                    pendingFileChooserCallback.onReceiveValue(null);
+                }
+                pendingFileChooserCallback = filePathCallback;
+                try {
+                    Intent pickerIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                    pickerIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                    pickerIntent.setType("image/*");
+                    pickerIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,
+                            fileChooserParams.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
+                    startActivityForResult(
+                            Intent.createChooser(pickerIntent, "Choose a profile picture"),
+                            FILE_CHOOSER_REQUEST_CODE);
+                    return true;
+                } catch (Exception error) {
+                    pendingFileChooserCallback = null;
+                    filePathCallback.onReceiveValue(null);
+                    Toast.makeText(MainActivity.this,
+                            "Unable to open photos. Please try again.",
+                            Toast.LENGTH_LONG).show();
+                    return false;
+                }
+            }
+        });
         webView.loadUrl(APP_URL);
         checkForAppUpdate();
     }
@@ -585,6 +618,28 @@ public class MainActivity extends FragmentActivity {
     }
 
     @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != FILE_CHOOSER_REQUEST_CODE) return;
+
+        if (pendingFileChooserCallback == null) return;
+        Uri[] results = null;
+        if (resultCode == RESULT_OK && data != null) {
+            if (data.getClipData() != null) {
+                ClipData clipData = data.getClipData();
+                results = new Uri[clipData.getItemCount()];
+                for (int i = 0; i < clipData.getItemCount(); i++) {
+                    results[i] = clipData.getItemAt(i).getUri();
+                }
+            } else if (data.getData() != null) {
+                results = new Uri[]{data.getData()};
+            }
+        }
+        pendingFileChooserCallback.onReceiveValue(results);
+        pendingFileChooserCallback = null;
+    }
+
+    @Override
     public void onBackPressed() {
         if (webView != null && webView.canGoBack()) {
             webView.goBack();
@@ -595,6 +650,10 @@ public class MainActivity extends FragmentActivity {
 
     @Override
     protected void onDestroy() {
+        if (pendingFileChooserCallback != null) {
+            pendingFileChooserCallback.onReceiveValue(null);
+            pendingFileChooserCallback = null;
+        }
         if (webView != null) {
             webView.loadUrl("about:blank");
             webView.destroy();
