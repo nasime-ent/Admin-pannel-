@@ -11,6 +11,10 @@ on:
       - '.github/workflows/build-android.yml'
       - 'MainActivity.java'
       - 'fingerprint-settings-inject.js'
+      - 'app-update.json'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -31,6 +35,35 @@ jobs:
           unzip -q KICHS_Android_Complete_Project.zip -d extracted
           test -f extracted/KICHS_Android_Complete_Project/android/settings.gradle
           test -f extracted/KICHS_Android_Complete_Project/android/app/build.gradle
+
+      - name: Load app version
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          data = json.loads(Path("app-update.json").read_text(encoding="utf-8"))
+          version_code = int(data["versionCode"])
+          version_name = str(data["versionName"])
+          if version_code < 1 or not version_name:
+              raise SystemExit("Invalid app version metadata")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"APP_VERSION_CODE={version_code}\\n")
+              env.write(f"APP_VERSION_NAME={version_name}\\n")
+          PY
+
+      - name: Set Android app version
+        run: |
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          gradle = Path("extracted/KICHS_Android_Complete_Project/android/app/build.gradle")
+          source = gradle.read_text(encoding="utf-8")
+          source, code_count = re.subn(r"\\bversionCode\\s+\\d+", "versionCode " + os.environ["APP_VERSION_CODE"], source, count=1)
+          source, name_count = re.subn(r"""\\bversionName\\s+["'][^"']+["']""", 'versionName "' + os.environ["APP_VERSION_NAME"] + '"', source, count=1)
+          if code_count != 1 or name_count != 1:
+              raise SystemExit("Could not safely set versionCode/versionName in app/build.gradle")
+          gradle.write_text(source, encoding="utf-8")
+          PY
       - name: Configure secure APK file sharing
         run: |
           python3 - <<'PY'
@@ -118,3 +151,15 @@ jobs:
           name: KICHS-Android-APK
           path: extracted/KICHS_Android_Complete_Project/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      - name: Publish latest APK release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.APP_VERSION_NAME }}
+          name: KICHS Student App v${{ env.APP_VERSION_NAME }}
+          body: |
+            KICHS Student App version ${{ env.APP_VERSION_NAME }}.
+            ${{ github.event.head_commit.message }}
+          files: extracted/KICHS_Android_Complete_Project/android/app/build/outputs/apk/debug/*.apk
+          overwrite_files: true
+          make_latest: true
