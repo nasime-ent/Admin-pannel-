@@ -86,6 +86,11 @@ public class MainActivity extends FragmentActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 pageReady = true;
+                // onResume can run before the WebView finishes its first load.
+                // If fingerprint protection is enabled, prompt now that the page is ready.
+                if (appInForeground) {
+                    requestBiometricUnlock();
+                }
                 if (url != null && url.startsWith("https://")) {
                     String bridgeScript = "(function(){"
                             + "function connectKichsFingerprint(){"
