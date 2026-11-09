@@ -98,6 +98,7 @@ class MainActivity : AppCompatActivity() {
         }
         bar.addView(title, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         bar.addView(actionButton)
+        bar.visibility = View.GONE // Remove the extra native title/fingerprint banner from the app screen.
         root.addView(bar)
         statusText = TextView(this).apply {
             text = "Sign in to your student account, then enable fingerprint protection."
@@ -105,6 +106,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 13f
             setPadding(14, 8, 14, 8)
         }
+        statusText.visibility = View.GONE // Show status only while the app is locked.
         root.addView(statusText)
         webView = WebView(this)
         root.addView(webView, LinearLayout.LayoutParams(
@@ -188,7 +190,8 @@ class MainActivity : AppCompatActivity() {
     private fun showWebApp() {
         root.visibility = View.VISIBLE
         webView.visibility = View.VISIBLE
-        actionButton.visibility = View.VISIBLE
+        actionButton.visibility = View.GONE
+        statusText.visibility = View.GONE
         if (!hasLoaded) {
             webView.loadUrl(appUrl)
             hasLoaded = true
@@ -252,6 +255,7 @@ class MainActivity : AppCompatActivity() {
         root.visibility = View.VISIBLE
         webView.visibility = View.INVISIBLE
         actionButton.visibility = View.GONE
+        statusText.visibility = View.VISIBLE
         statusText.text = "KICHS is locked. Verify your fingerprint to continue."
     }
 
@@ -268,10 +272,9 @@ class MainActivity : AppCompatActivity() {
                     showWebApp()
                 }
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    statusText.text = "KICHS remains locked. Tap retry after resolving the biometric prompt."
-                    actionButton.visibility = View.VISIBLE
-                    actionButton.text = "Retry fingerprint"
-                    actionButton.setOnClickListener { authenticateForUnlock() }
+                    statusText.visibility = View.VISIBLE
+                    statusText.text = "KICHS remains locked. Tap here to retry fingerprint."
+                    statusText.setOnClickListener { authenticateForUnlock() }
                 }
                 override fun onAuthenticationFailed() {
                     statusText.text = "Fingerprint not recognised. Try again."
