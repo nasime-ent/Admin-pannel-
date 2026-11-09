@@ -1,6 +1,13 @@
 package ug.ac.kichs.student;
 
 import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.Intent;
+import android.net.Uri;
+import androidx.core.content.FileProvider;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import android.graphics.Color;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -144,6 +151,7 @@ public class MainActivity extends FragmentActivity {
                             // and repeated DOM scans can stall WebView interaction.
                             + "})();";
                     view.evaluateJavascript(bridgeScript, null);
+                    view.evaluateJavascript("(function(){document.addEventListener('click',function(e){var el=e.target&&e.target.closest?e.target.closest('button,a,[role=button],[onclick]'):null;if(!el)return;var label=(el.innerText||el.textContent||el.getAttribute('aria-label')||'').trim();if(/share\\s*app/i.test(label)){e.preventDefault();e.stopImmediatePropagation();if(window.KICHSBiometric&&window.KICHSBiometric.shareAppApk){window.KICHSBiometric.shareAppApk();}else{alert('APK sharing is available in the installed KICHS Android app.');}}},true);})();", null);
                 }
 
                 // Do not interrupt first-time users with an app-lock setup pop-up.
@@ -208,6 +216,11 @@ public class MainActivity extends FragmentActivity {
         @JavascriptInterface
         public void setupFingerprint() {
             runOnUiThread(() -> enableBiometric());
+        }
+
+        @JavascriptInterface
+        public void shareAppApk() {
+            runOnUiThread(() -> shareInstalledApk());
         }
     }
 
@@ -374,6 +387,38 @@ public class MainActivity extends FragmentActivity {
             builder.setNegativeButtonText("Cancel");
         }
         prompt.authenticate(builder.build());
+    }
+
+    private void shareInstalledApk() {
+        try {
+            File shareDirectory = new File(getCacheDir(), "shared_apk");
+            if (!shareDirectory.exists() && !shareDirectory.mkdirs()) {
+                throw new IllegalStateException("Could not prepare APK sharing folder.");
+            }
+
+            File apkCopy = new File(shareDirectory, "KICHS-Student-App.apk");
+            try (FileInputStream input = new FileInputStream(getPackageCodePath());
+                 FileOutputStream output = new FileOutputStream(apkCopy)) {
+                byte[] buffer = new byte[8192];
+                int length;
+                while ((length = input.read(buffer)) > 0) {
+                    output.write(buffer, 0, length);
+                }
+                output.flush();
+            }
+
+            Uri apkUri = FileProvider.getUriForFile(
+                    this, getPackageName() + ".fileprovider", apkCopy);
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("application/vnd.android.package-archive");
+            shareIntent.putExtra(Intent.EXTRA_STREAM, apkUri);
+            shareIntent.setClipData(ClipData.newUri(getContentResolver(), "KICHS APK", apkUri));
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(shareIntent, "Share KICHS App APK"));
+        } catch (Exception error) {
+            Toast.makeText(this, "Unable to share the APK: " + error.getMessage(),
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     private void showNativeBiometricGate() {
