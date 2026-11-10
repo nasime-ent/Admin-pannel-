@@ -287,7 +287,7 @@ public class MainActivity extends FragmentActivity {
 
     private int biometricAvailability() {
         return BiometricManager.from(this)
-                .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG);
+                .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK);
     }
 
     private void offerBiometricSetup() {
@@ -416,7 +416,7 @@ public class MainActivity extends FragmentActivity {
                         .setTitle("KICHS Student App")
                         .setSubtitle(subtitle)
                         .setAllowedAuthenticators(
-                                BiometricManager.Authenticators.BIOMETRIC_STRONG
+                                BiometricManager.Authenticators.BIOMETRIC_WEAK
                         );
 
         if (forUnlock) {
@@ -427,7 +427,21 @@ public class MainActivity extends FragmentActivity {
             // IllegalArgumentException and the app closes when enrollment starts.
             builder.setNegativeButtonText("Cancel");
         }
-        prompt.authenticate(builder.build());
+        try {
+            prompt.authenticate(builder.build());
+        } catch (RuntimeException error) {
+            // Do not leave the enrollment button locked if Android cannot
+            // start the biometric prompt on this device.
+            promptShowing = false;
+            String message = "Android could not open fingerprint verification: "
+                    + (error.getMessage() == null ? "Please try again." : error.getMessage());
+            updateFingerprintStatus(message);
+            new AlertDialog.Builder(this)
+                    .setTitle("Fingerprint verification unavailable")
+                    .setMessage(message + "\n\nYou can continue using your KICHS PIN/password.")
+                    .setPositiveButton("OK", null)
+                    .show();
+        }
     }
 
 
