@@ -3,6 +3,9 @@ package ug.ac.kichs.student;
 import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.Intent;
+import android.content.ContentValues;
+import android.provider.MediaStore;
+import android.util.Base64;
 import android.net.Uri;
 import androidx.core.content.FileProvider;
 import java.io.File;
@@ -263,6 +266,16 @@ public class MainActivity extends FragmentActivity {
         public void shareAppApk() {
             runOnUiThread(() -> shareInstalledApk());
         }
+
+        @JavascriptInterface
+        public void openOfflinePdf(String fileName, String base64Data) {
+            runOnUiThread(() -> openOfflinePdfNative(fileName, base64Data));
+        }
+
+        @JavascriptInterface
+        public void saveOfflinePdf(String fileName, String base64Data) {
+            runOnUiThread(() -> saveOfflinePdfNative(fileName, base64Data));
+        }
     }
 
     private void updateFingerprintStatus(String message) {
@@ -521,6 +534,80 @@ public class MainActivity extends FragmentActivity {
                 if (connection != null) connection.disconnect();
             }
         }).start();
+    }
+
+    private String safePdfName(String name) {
+        String cleaned = name == null ? "KICHS-document.pdf" : name.replaceAll("[\\\\/\\\\\\\\:*?\\\"<>|]", "_");
+        if (!cleaned.toLowerCase().endsWith(".pdf")) cleaned += ".pdf";
+        return cleaned;
+    }
+
+    private byte[] decodePdfData(String base64Data) {
+        if (base64Data == null || base64Data.isEmpty()) {
+            throw new IllegalArgumentException("The saved PDF is empty.");
+        }
+        return Base64.decode(base64Data, Base64.DEFAULT);
+    }
+
+    private void openOfflinePdfNative(String fileName, String base64Data) {
+        try {
+            File directory = new File(getCacheDir(), "shared_apk");
+            if (!directory.exists() && !directory.mkdirs()) {
+                throw new IllegalStateException("Could not prepare the PDF.");
+            }
+            File pdf = new File(directory, safePdfName(fileName));
+            try (FileOutputStream output = new FileOutputStream(pdf)) {
+                output.write(decodePdfData(base64Data));
+                output.flush();
+            }
+            Uri uri = FileProvider.getUriForFile(
+                    this, getPackageName() + ".fileprovider", pdf);
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, "application/pdf");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(intent, "Open PDF with"));
+        } catch (Exception error) {
+            Toast.makeText(this, "Unable to open PDF: " + error.getMessage(),
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void saveOfflinePdfNative(String fileName, String base64Data) {
+        try {
+            byte[] bytes = decodePdfData(base64Data);
+            String displayName = safePdfName(fileName);
+            ContentValues values = new ContentValues();
+            values.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, displayName);
+            values.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                values.put(MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS);
+                values.put(MediaStore.Downloads.IS_PENDING, 1);
+                Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if (uri == null) throw new IllegalStateException("Could not create the Downloads file.");
+                try (java.io.OutputStream output = getContentResolver().openOutputStream(uri)) {
+                    if (output == null) throw new IllegalStateException("Could not write the PDF.");
+                    output.write(bytes);
+                    output.flush();
+                }
+                ContentValues complete = new ContentValues();
+                complete.put(MediaStore.Downloads.IS_PENDING, 0);
+                getContentResolver().update(uri, complete, null, null);
+            } else {
+                File downloads = android.os.Environment.getExternalStoragePublicDirectory(
+                        android.os.Environment.DIRECTORY_DOWNLOADS);
+                if (!downloads.exists() && !downloads.mkdirs()) {
+                    throw new IllegalStateException("Could not access Downloads.");
+                }
+                try (FileOutputStream output = new FileOutputStream(new File(downloads, displayName))) {
+                    output.write(bytes);
+                    output.flush();
+                }
+            }
+            Toast.makeText(this, "PDF saved to Downloads.", Toast.LENGTH_LONG).show();
+        } catch (Exception error) {
+            Toast.makeText(this, "Unable to save PDF: " + error.getMessage(),
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     private void shareInstalledApk() {
