@@ -292,14 +292,13 @@ tr:last-child td{border-bottom:0}
       <label>Year
         <select id="uploadYear">
           <option value="YEAR 1">YEAR 1</option>
+          <option value="YEAR 2">YEAR 2</option>
+          <option value="YEAR 3">YEAR 3</option>
         </select>
       </label>
 
       <label>Semester
-        <select id="uploadSemester">
-          <option value="YEAR 1 - SEMESTER 1">SEMESTER 1</option>
-          <option value="YEAR 1 - SEMESTER 2">SEMESTER 2</option>
-        </select>
+        <select id="uploadSemester"></select>
       </label>
 
       <label>Subject / Folder
@@ -952,14 +951,50 @@ const KICHS_UPLOAD_FOLDERS = {
     "Anatomy 2",
     "PHC",
     "Foundation 2 & Socio-Psychology"
+  ],
+  "YEAR 2 - SEMESTER 1": [
+    "Nurses/Paediatric & Palliative Care",
+    "Nurses/Gynaecology & Surgery",
+    "Nurses/Medicine & Pharmacology",
+    "Midwives/Obstetrics Anatomy",
+    "Midwives/Normal Delivery",
+    "Midwives/Palliative Care",
+    "Midwives/Pediatrics",
+    "Midwives/Pharmacology"
+  ],
+  "YEAR 2 - SEMESTER 2": [
+    "Nurses",
+    "Midwives"
+  ],
+  "YEAR 3 - SEMESTER 1": [
+    "Nurses",
+    "Midwives"
   ]
 };
+
+function refreshUploadSemesters(){
+  const year = document.getElementById("uploadYear").value;
+  const semester = document.getElementById("uploadSemester");
+  const available = {
+    "YEAR 1": ["YEAR 1 - SEMESTER 1", "YEAR 1 - SEMESTER 2"],
+    "YEAR 2": ["YEAR 2 - SEMESTER 1", "YEAR 2 - SEMESTER 2"],
+    "YEAR 3": ["YEAR 3 - SEMESTER 1"]
+  };
+  semester.innerHTML = (available[year] || []).map(value => {
+    const label = value.replace(year + " - ", "").replace("SEMESTER ", "SEMESTER ");
+    return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+  }).join("");
+  refreshUploadFolders();
+}
 
 function refreshUploadFolders(){
   const semester = document.getElementById("uploadSemester").value;
   const folder = document.getElementById("uploadFolder");
   const items = KICHS_UPLOAD_FOLDERS[semester] || [];
-  folder.innerHTML = items.map(x => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join("");
+  folder.innerHTML = items.map(x => {
+    const label = x.replace("/", " / ");
+    return `<option value="${escapeHtml(x)}">${escapeHtml(label)}</option>`;
+  }).join("");
   updateUploadDestination();
 }
 
@@ -1071,8 +1106,11 @@ const cancelUploadBtn = document.getElementById("cancelUploadBtn");
 if (cancelUploadBtn) cancelUploadBtn.onclick = closeAdminUpload;
 const startAdminUploadBtn = document.getElementById("startAdminUploadBtn");
 if (startAdminUploadBtn) startAdminUploadBtn.onclick = uploadAdminResource;
+const uploadYearEl = document.getElementById("uploadYear");
+if (uploadYearEl) uploadYearEl.addEventListener("change", refreshUploadSemesters);
 const uploadSemesterEl = document.getElementById("uploadSemester");
 if (uploadSemesterEl) uploadSemesterEl.addEventListener("change", refreshUploadFolders);
+refreshUploadSemesters();
 const uploadFolderEl = document.getElementById("uploadFolder");
 if (uploadFolderEl) uploadFolderEl.addEventListener("change", updateUploadDestination);
 const adminUploadFileEl = document.getElementById("adminUploadFile");
