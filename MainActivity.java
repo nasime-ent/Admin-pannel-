@@ -50,7 +50,7 @@ import java.util.concurrent.Executor;
 
 public class MainActivity extends FragmentActivity {
     // The existing Cloudflare student app remains the live application/backend.
-    private static final String APP_URL = "https://94d89380.kichs-app.pages.dev/";
+    private static final String APP_URL = "https://da2f2550.kichs-app.pages.dev/";
     private static final String PREFS = "kichs_native_security";
     private static final String KEY_BIOMETRIC = "biometric_enabled";
 
@@ -166,6 +166,7 @@ public class MainActivity extends FragmentActivity {
                             // and repeated DOM scans can stall WebView interaction.
                             + "})();";
                     view.evaluateJavascript(bridgeScript, null);
+                    view.evaluateJavascript("(function(){var u='https://23ebbe17.kichs-app.pages.dev/KICHS_Admin_Panel_AUDIT_LOGS-3.html';document.addEventListener('click',function(e){var el=e.target&&e.target.closest?e.target.closest('a,button,[role=button]'):null;if(!el)return;var t=(el.innerText||el.textContent||el.getAttribute('aria-label')||'').replace(/\\\\s+/g,' ').trim().toLowerCase();if(t==='admin'||t==='admin panel'){e.preventDefault();e.stopImmediatePropagation();window.location.href=u;}},true);})();", null);
                     view.evaluateJavascript("(function(){"
                             + "function toBase64(blob){return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){var data=String(reader.result||'');resolve(data.substring(data.indexOf(',')+1));};reader.onerror=function(){reject(reader.error||new Error('PDF read failed'));};reader.readAsDataURL(blob);});}"
                             + "window.shareOfflineFile=function(blob,name,mime,url){return toBase64(blob).then(function(data){if(window.KICHSBiometric&&window.KICHSBiometric.openOfflinePdf){window.KICHSBiometric.openOfflinePdf(name,data);return true;}throw new Error('Native PDF opener is unavailable');}).catch(function(err){console.error(err);alert('Unable to open this PDF. Please try Download PDF.');return false;});};"
