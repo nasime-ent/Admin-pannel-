@@ -404,16 +404,20 @@ public class MainActivity extends FragmentActivity {
                             @NonNull CharSequence errString) {
                         promptShowing = false;
                         if (forUnlock) {
-                            // Keep the native gate covering the WebView. The student
-                            // dashboard must not become visible when authentication is cancelled.
-                            showNativeBiometricGate();
-                            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED
-                                    && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
-                                Toast.makeText(
-                                        MainActivity.this,
-                                        errString,
-                                        Toast.LENGTH_SHORT
-                                ).show();
+                            if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                                // The user selected the PIN fallback button.
+                                hideNativeBiometricGate();
+                                openKichsPinLock();
+                            } else {
+                                // Keep the native gate covering the WebView.
+                                showNativeBiometricGate();
+                                if (errorCode != BiometricPrompt.ERROR_USER_CANCELED) {
+                                    Toast.makeText(
+                                            MainActivity.this,
+                                            errString,
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                }
                             }
                         }
                     }
@@ -437,22 +441,6 @@ public class MainActivity extends FragmentActivity {
                                 BiometricManager.Authenticators.BIOMETRIC_WEAK
                         );
 
-        if (forUnlock) {
-    if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
-        hideNativeBiometricGate();
-        openKichsPinLock();
-    } else {
-        showNativeBiometricGate();
-
-        if (errorCode != BiometricPrompt.ERROR_USER_CANCELED) {
-            Toast.makeText(
-                    MainActivity.this,
-                    errString,
-                    Toast.LENGTH_SHORT
-            ).show();
-        }
-    }
-}
         try {
             prompt.authenticate(builder.build());
         } catch (RuntimeException error) {
