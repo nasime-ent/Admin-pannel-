@@ -1,6 +1,6 @@
 {
-  "versionCode": 3,
-  "versionName": "2.0.1",
+  "versionCode": 4,
+  "versionName": "2.0.2",
   "downloadUrl": "https://github.com/nasime-ent/Admin-pannel-/releases/latest",
-  "releaseNotes": "Official KICHS school logo launcher icon and app improvements."
+  "releaseNotes": "Updated Android student portal address and routed the Admin button to the verified three-year Admin Panel."
 }
