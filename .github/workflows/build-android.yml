@@ -12,6 +12,7 @@ on:
       - 'MainActivity.java'
       - 'fingerprint-settings-inject.js'
       - 'app-update.json'
+      - 'admin.html'
       - 'kichs-logo.png'
 
 permissions:
