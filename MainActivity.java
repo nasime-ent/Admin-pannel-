@@ -1,4 +1,5 @@
 package ug.ac.kichs.student;
+// KICHS admin/news updates are served from the permanent Cloudflare Pages app URL.
 
 import android.app.AlertDialog;
 import android.content.ClipData;
