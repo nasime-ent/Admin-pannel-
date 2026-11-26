@@ -219,6 +219,12 @@ public class MainActivity extends FragmentActivity {
                             + "window.shareOfflineFile=function(blob,name,mime,url){return toBase64(blob).then(function(data){if(window.KICHSBiometric&&window.KICHSBiometric.openOfflinePdf){window.KICHSBiometric.openOfflinePdf(name,data);return true;}throw new Error('Native PDF opener is unavailable');}).catch(function(err){console.error(err);alert('Unable to open this PDF. Please try Download PDF.');return false;});};"
                             + "document.addEventListener('click',function(event){var a=event.target&&event.target.closest?event.target.closest('a[download]'):null;if(!a||!a.href||a.href.indexOf('blob:')!==0)return;var viewer=a.closest('#offlineViewer');if(!viewer)return;event.preventDefault();event.stopImmediatePropagation();fetch(a.href).then(function(response){return response.blob();}).then(toBase64).then(function(data){if(window.KICHSBiometric&&window.KICHSBiometric.saveOfflinePdf){window.KICHSBiometric.saveOfflinePdf(a.download||'KICHS-document.pdf',data);}else{throw new Error('Native PDF downloader is unavailable');}}).catch(function(err){console.error(err);alert('Unable to save this PDF. Please try again.');});},true);"
                             + "})();", null);
+                    // Save blob/data downloads (including images) through Android's
+                    // public Downloads collection instead of WebView app-private storage.
+                    view.evaluateJavascript("(function(){if(window.__kichsPublicResourceDownloadInstalled)return;window.__kichsPublicResourceDownloadInstalled=true;"
+                            + "function toBase64(blob){return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){var data=String(reader.result||'');resolve(data.substring(data.indexOf(',')+1));};reader.onerror=function(){reject(reader.error||new Error('File read failed'));};reader.readAsDataURL(blob);});}"
+                            + "document.addEventListener('click',function(event){var a=event.target&&event.target.closest?event.target.closest('a[download]'):null;if(!a||!a.href||(!a.href.startsWith('blob:')&&!a.href.startsWith('data:')))return;if(a.closest('#offlineViewer'))return;event.preventDefault();event.stopImmediatePropagation();var fileName=a.getAttribute('download')||'KICHS-resource';fetch(a.href).then(function(response){if(!response.ok)throw new Error('Could not read the downloaded file');return response.blob();}).then(function(blob){return toBase64(blob).then(function(data){if(window.KICHSBiometric&&window.KICHSBiometric.saveResource){window.KICHSBiometric.saveResource(fileName,blob.type||'application/octet-stream',data);}else{throw new Error('Native file saver is unavailable');}});}).catch(function(err){console.error(err);alert('Unable to save this file to Downloads. Please try again.');});},true);"
+                            + "})();", null);
                     view.evaluateJavascript("(function(){if(window.__kichsShareApkBridgeInstalled)return;window.__kichsShareApkBridgeInstalled=true;document.addEventListener('click',function(e){var el=e.target&&e.target.closest?e.target.closest('button,a,[role=button],[onclick]'):null;if(!el)return;var label=(el.innerText||el.textContent||el.getAttribute('aria-label')||'').trim();if(/share\\s*app/i.test(label)){e.preventDefault();e.stopImmediatePropagation();if(window.KICHSBiometric&&window.KICHSBiometric.shareAppApk){window.KICHSBiometric.shareAppApk();}else{alert('APK sharing is available in the installed KICHS Android app.');}}},true);})();", null);
                 }
 
@@ -376,6 +382,11 @@ public class MainActivity extends FragmentActivity {
         @JavascriptInterface
         public void saveOfflinePdf(String fileName, String base64Data) {
             runOnUiThread(() -> saveOfflinePdfNative(fileName, base64Data));
+        }
+
+        @JavascriptInterface
+        public void saveResource(String fileName, String mimeType, String base64Data) {
+            runOnUiThread(() -> saveResourceNative(fileName, mimeType, base64Data));
         }
     }
 
@@ -703,6 +714,63 @@ public class MainActivity extends FragmentActivity {
             Toast.makeText(this, "PDF saved to Downloads.", Toast.LENGTH_LONG).show();
         } catch (Exception error) {
             Toast.makeText(this, "Unable to save PDF: " + error.getMessage(),
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void saveResourceNative(String fileName, String mimeType, String base64Data) {
+        Uri savedUri = null;
+        try {
+            byte[] bytes = decodePdfData(base64Data);
+            String cleanName = fileName == null ? "KICHS-resource" : fileName
+                    .replaceAll("[\\\\/\\\\:*?\\\"<>|]", "_").trim();
+            if (cleanName.isEmpty() || cleanName.equals(".") || cleanName.equals("..")) {
+                cleanName = "KICHS-resource";
+            }
+            String cleanMime = mimeType == null || mimeType.trim().isEmpty()
+                    ? "application/octet-stream" : mimeType.trim().toLowerCase();
+            if (!cleanName.contains(".")) {
+                if ("image/jpeg".equals(cleanMime)) cleanName += ".jpg";
+                else if ("image/png".equals(cleanMime)) cleanName += ".png";
+                else if ("image/webp".equals(cleanMime)) cleanName += ".webp";
+                else if ("image/gif".equals(cleanMime)) cleanName += ".gif";
+                else if ("application/pdf".equals(cleanMime)) cleanName += ".pdf";
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, cleanName);
+                values.put(MediaStore.MediaColumns.MIME_TYPE, cleanMime);
+                values.put(MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS);
+                values.put(MediaStore.Downloads.IS_PENDING, 1);
+                savedUri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if (savedUri == null) throw new IllegalStateException("Could not create the Downloads file.");
+                try (java.io.OutputStream output = getContentResolver().openOutputStream(savedUri)) {
+                    if (output == null) throw new IllegalStateException("Could not write the file.");
+                    output.write(bytes);
+                    output.flush();
+                }
+                ContentValues complete = new ContentValues();
+                complete.put(MediaStore.Downloads.IS_PENDING, 0);
+                getContentResolver().update(savedUri, complete, null, null);
+            } else {
+                File downloads = android.os.Environment.getExternalStoragePublicDirectory(
+                        android.os.Environment.DIRECTORY_DOWNLOADS);
+                if (!downloads.exists() && !downloads.mkdirs()) {
+                    throw new IllegalStateException("Could not access Downloads.");
+                }
+                File destination = new File(downloads, cleanName);
+                try (FileOutputStream output = new FileOutputStream(destination)) {
+                    output.write(bytes);
+                    output.flush();
+                }
+            }
+            Toast.makeText(this, "File saved to Downloads.", Toast.LENGTH_LONG).show();
+        } catch (Exception error) {
+            if (savedUri != null) {
+                try { getContentResolver().delete(savedUri, null, null); } catch (Exception ignored) { }
+            }
+            Toast.makeText(this, "Unable to save file: " + error.getMessage(),
                     Toast.LENGTH_LONG).show();
         }
     }
