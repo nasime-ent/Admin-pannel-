@@ -633,7 +633,7 @@ html.kic-dark .kset-about-block{border-color:#35414d}html.kic-dark .kset-fingerp
   <button class="back" onclick="openPage('news')"><span class="material-icons">arrow_back</span>Back</button>
   <div class="resource-head">
     <h2>Academic Resources</h2>
-    <button class="chrome-btn" type="button" onclick="openUploadInChrome()" title="Open upload page in Chrome" aria-label="Upload files in Chrome"><span class="material-icons" style="font-size:20px;vertical-align:middle;margin-right:6px">upload</span>Upload Files</button>
+    <button class="chrome-btn" type="button" onclick="openStudentResourcePicker()" title="Choose a file to upload" aria-label="Choose files to upload"><span class="material-icons" style="font-size:20px;vertical-align:middle;margin-right:6px">upload</span>Upload Files</button>
   </div>
 
   <div id="resourceUploadBox" class="upload-box">
@@ -654,7 +654,7 @@ html.kic-dark .kset-about-block{border-color:#35414d}html.kic-dark .kset-fingerp
       <div class="chrome-upload-help">
         <b>Having trouble choosing a file?</b>
         If your Acode preview cannot open Android's file picker, open this app in Chrome and use the upload button there.
-        <br><button class="chrome-btn" type="button" onclick="openUploadInChrome()">Open upload page in Chrome</button>
+        <br><button class="chrome-btn" type="button" onclick="document.getElementById('resourceFile').click()">Choose a File</button>
       </div>
     </div>
   </div>
@@ -1652,6 +1652,13 @@ function toggleResourceUpload(){
   const box=document.getElementById("resourceUploadBox");
   box.style.display=box.style.display==="block"?"none":"block";
   if(box.style.display==="block")document.getElementById("resourceFile").focus();
+}
+
+function openStudentResourcePicker(){
+  const box=document.getElementById("resourceUploadBox");
+  const input=document.getElementById("resourceFile");
+  if(box)box.style.display="block";
+  if(input)setTimeout(()=>input.click(),150);
 }
 
 function resourceUser(){
