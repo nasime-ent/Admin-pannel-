@@ -224,10 +224,22 @@ tr:last-child td{border-bottom:0}
 </section>
 
 <section id="news" class="page">
-  <div class="section-title"><h2>News Management</h2><button class="btn" onclick="alert('Post composer will be connected to Supabase next.')"><span class="material-icons" style="vertical-align:middle;font-size:18px">add</span> New Post</button></div>
-  <div class="card"><div class="table-wrap"><table><thead><tr><th>Post</th><th>Sender</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
-  <tbody><tr><td colspan="5" class="empty">Pending and published news will appear here.</td></tr></tbody></table></div></div>
+  <div class="section-title"><div><h2>News Management</h2><div style="color:var(--muted);font-size:12px;margin-top:4px">Create, publish and manage KICHS announcements</div></div><div class="actions"><button class="btn secondary" type="button" id="refreshNewsBtn">Refresh</button><button class="btn" type="button" id="newNewsPostBtn"><span class="material-icons" style="vertical-align:middle;font-size:18px">add</span> New Post</button></div></div>
+  <div id="newsStatus" class="notice" style="margin-bottom:12px">Loading news posts...</div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Post</th><th>Sender</th><th>Type</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody id="newsTableBody"><tr><td colspan="6" class="empty">Loading news posts...</td></tr></tbody></table></div></div>
 </section>
+<div id="newsComposerPanel" class="upload-panel" aria-hidden="true"><div class="upload-card">
+  <h2 id="newsComposerTitle">Create News Post</h2><p class="sub">Write an announcement for KICHS students</p>
+  <form id="newsComposerForm" class="form">
+    <label>Post title<input id="newsPostTitle" type="text" maxlength="180" required placeholder="Enter a clear title"></label>
+    <label>Post content<textarea id="newsPostContent" rows="6" maxlength="12000" required placeholder="Write the announcement..."></textarea></label>
+    <label>Post type<select id="newsPostType"><option value="official">Official announcement</option><option value="community">Community news</option></select></label>
+    <label>Publication status<select id="newsPostStatus"><option value="approved">Publish now</option><option value="pending">Save as pending</option></select></label>
+    <label style="display:flex;align-items:center;gap:9px"><input id="newsPostPinned" type="checkbox" style="width:auto"> Pin this post</label>
+    <div id="newsComposerMessage" class="notice" style="display:none"></div>
+    <div class="upload-actions"><button class="btn secondary" type="button" id="cancelNewsPostBtn">Cancel</button><button class="btn" type="submit" id="saveNewsPostBtn">Publish Post</button></div>
+  </form>
+</div></div>
 
 <section id="resources" class="page">
   <div class="section-title"><h2>School Resources</h2><button class="btn secondary" type="button" id="refreshResourcesBtn"><span class="material-icons" style="vertical-align:middle;font-size:18px">refresh</span> Refresh</button></div>
@@ -890,6 +902,98 @@ document.getElementById('logoutBtn').onclick=async()=>{
     if(supabaseClient) await supabaseClient.auth.signOut();
   }
 };
+
+
+/* ===== Supabase News Management ===== */
+let newsRecords = [];
+let newsEditingId = null;
+function setNewsStatus(message,kind){
+  const el=document.getElementById('newsStatus'); if(!el)return;
+  el.textContent=message;
+  el.style.color=kind==='error'?'var(--danger)':kind==='success'?'var(--success)':'var(--text)';
+}
+function openNewsComposer(post){
+  const panel=document.getElementById('newsComposerPanel');
+  newsEditingId=post ? post.id : null;
+  document.getElementById('newsComposerTitle').textContent=newsEditingId?'Edit News Post':'Create News Post';
+  document.getElementById('newsPostTitle').value=post?.title||'';
+  document.getElementById('newsPostContent').value=post?.content||'';
+  document.getElementById('newsPostType').value=post?.post_type||'official';
+  document.getElementById('newsPostStatus').value=post?.status||'approved';
+  document.getElementById('newsPostPinned').checked=!!post?.pinned;
+  document.getElementById('newsComposerMessage').style.display='none';
+  document.getElementById('saveNewsPostBtn').textContent=newsEditingId?'Update Post':'Publish Post';
+  panel.classList.add('open'); panel.setAttribute('aria-hidden','false');
+}
+function closeNewsComposer(){
+  const panel=document.getElementById('newsComposerPanel');
+  panel.classList.remove('open'); panel.setAttribute('aria-hidden','true');
+  newsEditingId=null; document.getElementById('newsComposerForm').reset();
+}
+function renderNewsRecords(){
+  const body=document.getElementById('newsTableBody'); if(!body)return;
+  if(!newsRecords.length){body.innerHTML='<tr><td colspan="6" class="empty">No news posts yet. Tap New Post to create the first announcement.</td></tr>';return;}
+  body.innerHTML=newsRecords.map(post=>{
+    const status=String(post.status||'pending');
+    const badge=status==='approved'?'active-b':status==='rejected'?'rejected-b':'pending-b';
+    const author=post.profiles?.full_name||'KICHS Admin';
+    const date=post.created_at?new Date(post.created_at).toLocaleString():'—';
+    return '<tr><td><b>'+escapeHtmlSafe(post.title||'Untitled post')+'</b><div style="font-size:12px;color:var(--muted);max-width:340px;white-space:normal">'+escapeHtmlSafe((post.content||'').slice(0,140))+'</div>'+(post.pinned?'<span class="badge active-b">PINNED</span>':'')+'</td><td>'+escapeHtmlSafe(author)+'</td><td>'+escapeHtmlSafe(post.post_type||'community')+'</td><td><span class="badge '+badge+'">'+escapeHtmlSafe(status.toUpperCase())+'</span></td><td>'+escapeHtmlSafe(date)+'</td><td><div class="actions"><button class="btn secondary" type="button" onclick="editNewsPost(\\''+post.id+'\\')">Edit</button>'+(status!=='approved'?'<button class="btn success" type="button" onclick="changeNewsStatus(\\''+post.id+'\\',\\'approved\\')">Publish</button>':'<button class="btn secondary" type="button" onclick="changeNewsStatus(\\''+post.id+'\\',\\'pending\\')">Unpublish</button>')+'<button class="btn danger" type="button" onclick="deleteNewsPost(\\''+post.id+'\\')">Delete</button></div></td></tr>';
+  }).join('');
+}
+async function loadNewsPosts(){
+  if(!supabaseClient)return;
+  setNewsStatus('Loading news posts...');
+  const body=document.getElementById('newsTableBody');
+  body.innerHTML='<tr><td colspan="6" class="empty">Loading news posts...</td></tr>';
+  try{
+    const {data,error}=await supabaseClient.from('news').select('id,author_id,title,content,post_type,status,pinned,created_at,profiles:profiles!news_author_id_fkey(full_name)').order('created_at',{ascending:false});
+    if(error)throw error;
+    newsRecords=data||[]; renderNewsRecords();
+    setNewsStatus(newsRecords.length+' news post'+(newsRecords.length===1?'':'s')+' loaded.','success');
+  }catch(error){
+    console.error('KICHS news load failed:',error);
+    body.innerHTML='<tr><td colspan="6" class="empty">Unable to load news posts.</td></tr>';
+    setNewsStatus('Could not load news: '+(error.message||error),'error');
+  }
+}
+function editNewsPost(id){const post=newsRecords.find(item=>item.id===id);if(post)openNewsComposer(post);}
+async function saveNewsPost(event){
+  event.preventDefault();
+  const title=document.getElementById('newsPostTitle').value.trim();
+  const body=document.getElementById('newsPostContent').value.trim();
+  const message=document.getElementById('newsComposerMessage');
+  const button=document.getElementById('saveNewsPostBtn');
+  if(!title||!body){message.textContent='Please enter both a title and the post content.';message.style.display='block';return;}
+  button.disabled=true;button.textContent='Saving...';
+  try{
+    const {data:{user},error:userError}=await supabaseClient.auth.getUser();
+    if(userError||!user)throw new Error(userError?.message||'Your admin session has expired. Sign in again.');
+    const values={author_id:user.id,title,content:body,post_type:document.getElementById('newsPostType').value,status:document.getElementById('newsPostStatus').value,pinned:document.getElementById('newsPostPinned').checked,anonymous_to_students:false,updated_at:new Date().toISOString()};
+    const result=newsEditingId
+      ? await supabaseClient.from('news').update(values).eq('id',newsEditingId).select('id').single()
+      : await supabaseClient.from('news').insert(values).select('id').single();
+    if(result.error)throw result.error;
+    closeNewsComposer();await loadNewsPosts();setNewsStatus('News post saved successfully.','success');
+  }catch(error){
+    console.error('KICHS news save failed:',error);
+    message.textContent='Could not save post: '+(error.message||error);message.style.display='block';
+  }finally{button.disabled=false;button.textContent='Publish Post';}
+}
+async function changeNewsStatus(id,status){
+  if(!confirm(status==='approved'?'Publish this news post?':'Change this post to pending?'))return;
+  try{const {error}=await supabaseClient.from('news').update({status,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error;await loadNewsPosts();}
+  catch(error){alert('Could not update news status: '+(error.message||error));}
+}
+async function deleteNewsPost(id){
+  if(!confirm('Permanently delete this news post? This cannot be undone.'))return;
+  try{const {error}=await supabaseClient.from('news').delete().eq('id',id);if(error)throw error;await loadNewsPosts();}
+  catch(error){alert('Could not delete news post: '+(error.message||error));}
+}
+document.getElementById('newNewsPostBtn')?.addEventListener('click',()=>openNewsComposer(null));
+document.getElementById('refreshNewsBtn')?.addEventListener('click',loadNewsPosts);
+document.getElementById('cancelNewsPostBtn')?.addEventListener('click',closeNewsComposer);
+document.getElementById('newsComposerForm')?.addEventListener('submit',saveNewsPost);
 
 /* ===== Resource Library ===== */
 function escapeHtmlSafe(value){
