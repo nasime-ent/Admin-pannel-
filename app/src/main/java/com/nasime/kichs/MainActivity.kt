@@ -147,10 +147,10 @@ class MainActivity : AppCompatActivity() {
                 return try {
                     val pickerIntent = fileChooserParams.createIntent().apply {
                         addCategory(Intent.CATEGORY_OPENABLE)
-                        type = if (type.isNullOrBlank() || type == "*/*") "image/*" else type
+                        type = if (type.isNullOrBlank()) "*/*" else type
                     }
                     filePickerLauncher.launch(
-                        Intent.createChooser(pickerIntent, "Choose a profile picture")
+                        Intent.createChooser(pickerIntent, "Choose a file")
                     )
                     true
                 } catch (error: Exception) {
@@ -158,7 +158,7 @@ class MainActivity : AppCompatActivity() {
                     this@MainActivity.filePathCallback = null
                     Toast.makeText(
                         this@MainActivity,
-                        "Unable to open the photo picker. Please try again.",
+                        "Unable to open files. Please try again.",
                         Toast.LENGTH_LONG
                     ).show()
                     false
