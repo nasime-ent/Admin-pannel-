@@ -628,8 +628,8 @@ html:not(.kic-dark) .chat-item{background:#fff;color:#172b4d}
 <main>
 <section id="newsPage" class="page active">
 <div class="welcome"><h2 id="welcome"></h2><div class="muted">Latest information from Kiryokya College of Health Sciences.</div></div>
-<div class="title">Latest News</div>
-<div class="news"><div class="newshead"><div class="nicon"><span class="material-icons">campaign</span></div><div><b>Welcome to Kiryokya College</b><div class="date">Official Announcement</div></div></div><p>Welcome to the official Kiryokya College communication platform. Stay updated with school information and important announcements.</p></div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div class="title">Latest News</div><button type="button" onclick="loadLatestNews()" style="border:0;border-radius:18px;padding:8px 13px;background:#e8f1ff;color:#0759b8;font-weight:700">Refresh</button></div>
+<div id="latestNewsFeed" aria-live="polite"><div class="news">Loading announcements...</div></div>
 </section>
 
 <section id="messagesPage" class="page">
@@ -1070,6 +1070,22 @@ function subscribeKichsNotifications(){
 }
 function unsubscribeKichsNotifications(){if(kichsNotificationChannel){supabaseClient.removeChannel(kichsNotificationChannel);kichsNotificationChannel=null}}
 
+function kichsNewsEscape(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+async function loadLatestNews(){
+  const box=document.getElementById('latestNewsFeed');if(!box)return;
+  box.innerHTML='<div class="news">Loading announcements...</div>';
+  try{
+    const {data,error}=await supabaseClient.from('news').select('id,title,content,post_type,status,pinned,created_at').eq('status','approved').order('pinned',{ascending:false}).order('created_at',{ascending:false}).limit(20);
+    if(error)throw error;
+    if(!data||!data.length){box.innerHTML='<div class="news"><p>No published announcements yet.</p></div>';return;}
+    box.innerHTML=data.map(post=>{
+      const type=String(post.post_type||'community').toLowerCase()==='official'?'Official Announcement':'Community News';
+      const date=post.created_at?new Date(post.created_at).toLocaleString():'';
+      return '<article class="news"><div class="newshead"><div class="nicon"><span class="material-icons">campaign</span></div><div><b>'+kichsNewsEscape(post.title||'Announcement')+'</b><div class="date">'+type+(date?' · '+kichsNewsEscape(date):'')+(post.pinned?' · 📌 Pinned':'')+'</div></div></div><p>'+kichsNewsEscape(post.content||'').replace(/\r?\n/g,'<br>')+'</p></article>';
+    }).join('');
+  }catch(error){console.error('KICHS student news load failed:',error);box.innerHTML='<div class="news"><p>Could not load announcements. Please tap Refresh to try again.</p></div>';}
+}
+
 function start(){
   auth.style.display="none";app.style.display="block";
   subscribeKichsNotifications();
@@ -1130,7 +1146,7 @@ async function openOfflineFile(id){try{const db=await openOfflineDB();const f=aw
 function closeOfflineViewer(revoke=true){const viewer=document.getElementById('offlineViewer');if(!viewer)return;viewer.classList.remove('show');document.getElementById('offlineViewerBody').innerHTML='';if(revoke){offlineObjectUrls.forEach(URL.revokeObjectURL);offlineObjectUrls=[]}}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeOfflineViewer()});
 
-function openPage(page){
+function openPage(page){ if(page==="news"&&typeof loadLatestNews==="function")loadLatestNews();
 document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
 document.getElementById(page+"Page").classList.add("active");
 document.querySelectorAll(".bottom button").forEach(x=>x.classList.remove("active"));
