@@ -376,37 +376,78 @@ const authError = document.getElementById('authError');
 const authStatus = document.getElementById('authStatus');
 
 let supabaseClient = null;
-// Admin profile photo (saved locally in this browser/device)
-(function initAdminProfilePhoto(){
+initAdminProfilePhoto();
+// Admin profile photo (stored in Supabase Storage and linked to the signed-in admin account)
+let adminProfilePhotoUrl = null;
+function applyAdminProfilePhoto(url){
+  const avatar=document.getElementById('adminProfileAvatar');
+  if(!avatar)return;
+  avatar.innerHTML='';
+  if(url){
+    const img=document.createElement('img');
+    img.alt='Admin profile photo';
+    img.src=url;
+    img.onerror=()=>{avatar.textContent='A';};
+    avatar.appendChild(img);
+  }else{
+    avatar.textContent='A';
+  }
+}
+async function loadAdminProfilePhoto(user){
+  try{
+    const url=user?.user_metadata?.admin_profile_photo_url || null;
+    adminProfilePhotoUrl=url;
+    applyAdminProfilePhoto(url);
+  }catch(error){
+    console.warn('Could not load admin profile photo:',error);
+    applyAdminProfilePhoto(null);
+  }
+}
+function initAdminProfilePhoto(){
   const avatar=document.getElementById('adminProfileAvatar');
   const picker=document.getElementById('adminProfilePhotoInput');
   if(!avatar||!picker)return;
-  const storageKey='kichs_admin_profile_photo_v1';
-  function applyPhoto(data){
-    avatar.innerHTML='';
-    const img=document.createElement('img');
-    img.alt='Admin profile photo';
-    img.src=data;
-    avatar.appendChild(img);
-  }
-  try{const saved=localStorage.getItem(storageKey);if(saved)applyPhoto(saved);}catch(e){}
-  avatar.addEventListener('click',function(){picker.click();});
-  avatar.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();picker.click();}});
-  avatar.setAttribute('role','button');avatar.setAttribute('tabindex','0');
-  picker.addEventListener('change',function(){
-    const file=picker.files&&picker.files[0];if(!file)return;
-    if(!file.type||!file.type.startsWith('image/')){alert('Please select an image file.');picker.value='';return;}
-    if(file.size>2*1024*1024){alert('Please choose an image smaller than 2 MB.');picker.value='';return;}
-    const reader=new FileReader();
-    reader.onload=function(){
-      const data=String(reader.result||'');
-      try{localStorage.setItem(storageKey,data);applyPhoto(data);}
-      catch(err){alert('Unable to save profile photo on this device. Try a smaller image.');}
-    };
-    reader.onerror=function(){alert('Could not read the selected photo.');};
-    reader.readAsDataURL(file);
+  avatar.addEventListener('click',()=>picker.click());
+  avatar.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();picker.click();}});
+  avatar.setAttribute('role','button');
+  avatar.setAttribute('tabindex','0');
+  picker.addEventListener('change',async()=>{
+    const file=picker.files&&picker.files[0];
+    if(!file)return;
+    if(!file.type||!file.type.startsWith('image/')){
+      alert('Please select an image file.');picker.value='';return;
+    }
+    if(file.size>5*1024*1024){
+      alert('Please choose an image smaller than 5 MB.');picker.value='';return;
+    }
+    if(!supabaseClient){
+      alert('Please sign in as administrator before changing the profile picture.');picker.value='';return;
+    }
+    avatar.style.opacity='.55';
+    try{
+      const {data:{user},error:userError}=await supabaseClient.auth.getUser();
+      if(userError||!user)throw new Error(userError?.message||'Admin session expired. Sign in again.');
+      const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+      const objectPath=user.id+'/admin-profile.'+ext;
+      const {error:uploadError}=await supabaseClient.storage.from('kichs-avatars').upload(objectPath,file,{upsert:true,contentType:file.type,cacheControl:'3600'});
+      if(uploadError)throw uploadError;
+      const {data:{publicUrl}}=supabaseClient.storage.from('kichs-avatars').getPublicUrl(objectPath);
+      const freshUrl=publicUrl+(publicUrl.includes('?')?'&':'?')+'v='+Date.now();
+      const {error:metadataError}=await supabaseClient.auth.updateUser({data:{admin_profile_photo_url:freshUrl}});
+      if(metadataError)throw metadataError;
+      adminProfilePhotoUrl=freshUrl;
+      applyAdminProfilePhoto(freshUrl);
+      alert('Admin profile picture saved successfully.');
+    }catch(error){
+      console.error('Admin profile photo upload failed:',error);
+      alert('Could not save profile picture: '+(error.message||error));
+    }finally{
+      avatar.style.opacity='1';
+      picker.value='';
+    }
   });
-})();
+}
+
 
 
 function showAuthError(message){
@@ -492,8 +533,7 @@ async function verifyAdminAndOpen(){
 
     const chip = document.querySelector('.admin-chip span');
     if (chip) chip.textContent='Admin';
-    const avatar = document.querySelector('.avatar');
-    if (avatar) avatar.textContent=(user.email || 'A').charAt(0).toUpperCase();
+    await loadAdminProfilePhoto(user);
   } catch (err) {
     console.error('KICHS admin verification error:', err);
     await supabaseClient.auth.signOut();
