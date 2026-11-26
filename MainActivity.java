@@ -2,6 +2,7 @@ package ug.ac.kichs.student;
 // KICHS admin/news updates are served from the permanent Cloudflare Pages app URL.
 
 import android.app.AlertDialog;
+import android.app.DownloadManager;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.ContentValues;
@@ -27,6 +28,8 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.WebChromeClient;
+import android.webkit.CookieManager;
+import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
@@ -258,6 +261,54 @@ public class MainActivity extends FragmentActivity {
                 }
             }
         });
+        // Save ordinary resource downloads from the student portal into the
+        // device's public Downloads folder, with a system completion notification.
+        webView.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) -> {
+            try {
+                if (url == null || !(url.startsWith("https://") || url.startsWith("http://"))) {
+                    Toast.makeText(MainActivity.this, "This download link is not supported.",
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+                String fileName = URLUtil.guessFileName(url, contentDisposition, mimeType);
+                if (fileName == null || fileName.trim().isEmpty()) {
+                    fileName = "KICHS-resource";
+                }
+                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                request.setTitle(fileName);
+                request.setDescription("Downloading KICHS learning resource");
+                request.setMimeType(mimeType != null && !mimeType.trim().isEmpty()
+                        ? mimeType : "application/octet-stream");
+                request.setNotificationVisibility(
+                        DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                request.setDestinationInExternalPublicDir(
+                        android.os.Environment.DIRECTORY_DOWNLOADS, fileName);
+                request.setAllowedOverMetered(true);
+                request.setAllowedOverRoaming(true);
+
+                String cookies = CookieManager.getInstance().getCookie(url);
+                if (cookies != null && !cookies.isEmpty()) {
+                    request.addRequestHeader("Cookie", cookies);
+                }
+                if (userAgent != null && !userAgent.isEmpty()) {
+                    request.addRequestHeader("User-Agent", userAgent);
+                }
+
+                DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                if (manager == null) {
+                    throw new IllegalStateException("Android Download Manager is unavailable.");
+                }
+                manager.enqueue(request);
+                Toast.makeText(MainActivity.this,
+                        "Download started. Check your Downloads folder.",
+                        Toast.LENGTH_LONG).show();
+            } catch (Exception error) {
+                Toast.makeText(MainActivity.this,
+                        "Unable to download file: " + error.getMessage(),
+                        Toast.LENGTH_LONG).show();
+            }
+        });
+
         webView.loadUrl(APP_URL);
         checkForAppUpdate();
     }
