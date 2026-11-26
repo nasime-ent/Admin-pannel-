@@ -888,6 +888,7 @@ function openPage(id){
   if (id === 'students' && supabaseClient) loadStudents();
   if (id === 'payments' && supabaseClient) loadPendingPayments();
   if (id === 'audit' && supabaseClient) loadAuditLogs();
+  if (id === 'news' && supabaseClient) loadNewsPosts();
   if (id === 'resources') loadAdminResources();
   document.querySelectorAll('.nav button[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
   document.getElementById('pageTitle').textContent=titleMap[id]||'Admin Panel';
