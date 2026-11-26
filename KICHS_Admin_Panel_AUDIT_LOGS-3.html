@@ -1226,6 +1226,44 @@ function setUploadProgress(text, kind){
   el.textContent = text;
 }
 
+function getKichsUploadStatus(requestId){
+  return new Promise((resolve, reject) => {
+    const callback = "kichsUploadStatus_" + requestId;
+    const script = document.createElement("script");
+    let finished = false;
+    const cleanup = () => {
+      if (finished) return;
+      finished = true;
+      try { delete window[callback]; } catch (e) { window[callback] = undefined; }
+      script.remove();
+    };
+    window[callback] = function(result){
+      cleanup();
+      resolve(result || {success:false, message:"Empty upload status response."});
+    };
+    script.onerror = function(){
+      cleanup();
+      reject(new Error("Could not check upload status."));
+    };
+    script.src = DRIVE_UPLOAD_ENDPOINT + "?action=uploadstatus&id=" +
+      encodeURIComponent(requestId) + "&callback=" + callback + "&_=" + Date.now();
+    document.head.appendChild(script);
+  });
+}
+
+async function waitForKichsUpload(requestId){
+  for(let attempt = 0; attempt < 45; attempt++){
+    try{
+      const result = await getKichsUploadStatus(requestId);
+      if(result && result.pending !== true) return result;
+    }catch(error){
+      console.warn("Upload status check:", error);
+    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  throw new Error("The server did not confirm this upload within 45 seconds. Check Admin Resources before trying again.");
+}
+
 async function uploadAdminResource(){
   const file = document.getElementById("adminUploadFile").files[0];
   const semester = document.getElementById("uploadSemester").value;
@@ -1235,9 +1273,12 @@ async function uploadAdminResource(){
     setUploadProgress("Please choose a file first.", "error");
     return;
   }
-
   if(file.size > ADMIN_MAX_UPLOAD_MB * 1024 * 1024){
     setUploadProgress(`File is too large. Maximum size is ${ADMIN_MAX_UPLOAD_MB} MB.`, "error");
+    return;
+  }
+  if(!semester || !folder){
+    setUploadProgress("Choose a valid semester and destination folder.", "error");
     return;
   }
 
@@ -1251,41 +1292,54 @@ async function uploadAdminResource(){
     const bytes = new Uint8Array(buffer);
     let binary = "";
     const chunk = 0x8000;
-    for(let i=0;i<bytes.length;i+=chunk){
-      binary += String.fromCharCode(...bytes.subarray(i, Math.min(i+chunk, bytes.length)));
+    for(let i = 0; i < bytes.length; i += chunk){
+      binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunk, bytes.length)));
     }
     const base64 = btoa(binary);
+    const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 
-    /*
-      folderPath is the exact destination requested by the Admin.
-      The Apps Script backend should resolve it under the protected
-      KIRYOKYA-APP / 01-APK root.
-    */
+    // The configured Drive folder ID already points to 01-APK.
+    // Therefore the path must be relative to that folder, without root labels.
     const payload = {
-      action: "upload",
+      requestId: requestId,
       fileName: file.name,
       mimeType: file.type || "application/octet-stream",
       folderId: KIRYOKYA_DRIVE_FOLDER_ID,
-      folderPath: `KIRYOKYA-APP/01-APK/${semester}/${folder}`,
-      semester: semester,
-      category: folder,
+      path: semester + "/" + folder,
       fileBase64: base64,
-      uploader: "KICHS Admin"
+      sender: {
+        name: "KICHS Admin",
+        contact: "",
+        set: ""
+      }
     };
 
-    setUploadProgress(`Uploading ${file.name}…`);
-    await fetch(DRIVE_UPLOAD_ENDPOINT,{
-      method:"POST",
-      mode:"no-cors",
-      headers:{"Content-Type":"text/plain;charset=utf-8"},
-      body:JSON.stringify(payload)
+    setUploadProgress("Sending " + file.name + " to Google Drive…");
+    // text/plain is a simple cross-origin POST. The response is opaque, so
+    // confirmation is retrieved separately through the JSONP uploadstatus action.
+    await fetch(DRIVE_UPLOAD_ENDPOINT, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {"Content-Type":"text/plain;charset=utf-8"},
+      body: JSON.stringify(payload)
     });
 
-    setUploadProgress(`Upload request sent successfully.\nDestination: ${semester} / ${folder}`, "success");
+    setUploadProgress("File sent. Waiting for Google Drive confirmation…");
+    const result = await waitForKichsUpload(requestId);
+    if(!result.success){
+      throw new Error(result.message || "Google Drive rejected the upload.");
+    }
+
+    setUploadProgress(
+      "Upload successful: " + (result.name || file.name) +
+      "\\nSaved in: " + (result.path || (semester + "/" + folder)),
+      "success"
+    );
     document.getElementById("adminUploadFile").value = "";
+    if(typeof loadAdminResources === "function") loadAdminResources();
   }catch(err){
     console.error(err);
-    setUploadProgress("Upload failed: " + (err.message || err), "error");
+    setUploadProgress("Upload not confirmed: " + (err.message || err), "error");
   }finally{
     btn.disabled = false;
     btn.style.opacity = "1";
