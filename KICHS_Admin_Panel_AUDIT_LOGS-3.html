@@ -541,24 +541,26 @@ async function verifyAdminAndOpen(){
   }
 }
 
-loginForm.addEventListener('submit', async (e)=>{
+if (loginForm) loginForm.addEventListener('submit', async (e)=>{
   e.preventDefault();
   clearAuthMessages();
   if (!supabaseClient) {
-    showAuthError('Supabase is not configured yet.');
+    showAuthError('Secure sign-in is still initializing. Please wait a moment and try again.');
     return;
   }
   setLoginBusy(true);
-  const email=document.getElementById('adminEmail').value.trim();
-  const password=document.getElementById('adminPassword').value;
-  const {error} = await supabaseClient.auth.signInWithPassword({email,password});
-  if (error) {
-    showAuthError(error.message || 'Sign in failed.');
+  try {
+    const email=document.getElementById('adminEmail').value.trim();
+    const password=document.getElementById('adminPassword').value;
+    const {error} = await supabaseClient.auth.signInWithPassword({email,password});
+    if (error) throw error;
+    await verifyAdminAndOpen();
+  } catch (err) {
+    console.error('KICHS admin sign-in error:', err);
+    showAuthError(err?.message || 'Sign in failed. Please check your connection and try again.');
+  } finally {
     setLoginBusy(false);
-    return;
   }
-  await verifyAdminAndOpen();
-  setLoginBusy(false);
 });
 
 let studentRecords = [];
@@ -972,14 +974,30 @@ function closeNewsComposer(){
   newsEditingId=null; document.getElementById('newsComposerForm').reset();
 }
 function renderNewsRecords(){
-  const body=document.getElementById('newsTableBody'); if(!body)return;
-  if(!newsRecords.length){body.innerHTML='<tr><td colspan="6" class="empty">No news posts yet. Tap New Post to create the first announcement.</td></tr>';return;}
+  const body=document.getElementById('newsTableBody');
+  if(!body)return;
+  if(!newsRecords.length){
+    body.innerHTML='<tr><td colspan="6" class="empty">No news posts yet. Tap New Post to create the first announcement.</td></tr>';
+    return;
+  }
   body.innerHTML=newsRecords.map(post=>{
     const status=String(post.status||'pending');
     const badge=status==='approved'?'active-b':status==='rejected'?'rejected-b':'pending-b';
     const author=post.profiles?.full_name||'KICHS Admin';
     const date=post.created_at?new Date(post.created_at).toLocaleString():'—';
-    return '<tr><td><b>'+escapeHtmlSafe(post.title||'Untitled post')+'</b><div style="font-size:12px;color:var(--muted);max-width:340px;white-space:normal">'+escapeHtmlSafe((post.content||'').slice(0,140))+'</div>'+(post.pinned?'<span class="badge active-b">PINNED</span>':'')+'</td><td>'+escapeHtmlSafe(author)+'</td><td>'+escapeHtmlSafe(post.post_type||'community')+'</td><td><span class="badge '+badge+'">'+escapeHtmlSafe(status.toUpperCase())+'</span></td><td>'+escapeHtmlSafe(date)+'</td><td><div class="actions"><button class="btn secondary" type="button" onclick="editNewsPost(\\''+post.id+'\\')">Edit</button>'+(status!=='approved'?'<button class="btn success" type="button" onclick="changeNewsStatus(\\''+post.id+'\\',\\'approved\\')">Publish</button>':'<button class="btn secondary" type="button" onclick="changeNewsStatus(\\''+post.id+'\\',\\'pending\\')">Unpublish</button>')+'<button class="btn danger" type="button" onclick="deleteNewsPost(\\''+post.id+'\\')">Delete</button></div></td></tr>';
+    const id=String(post.id||'');
+    return `<tr>
+      <td><b>${escapeHtmlSafe(post.title||'Untitled post')}</b><div style="font-size:12px;color:var(--muted);max-width:340px;white-space:normal">${escapeHtmlSafe((post.content||'').slice(0,140))}</div>${post.pinned?'<span class="badge active-b">PINNED</span>':''}</td>
+      <td>${escapeHtmlSafe(author)}</td>
+      <td>${escapeHtmlSafe(post.post_type||'community')}</td>
+      <td><span class="badge ${badge}">${escapeHtmlSafe(status.toUpperCase())}</span></td>
+      <td>${escapeHtmlSafe(date)}</td>
+      <td><div class="actions">
+        <button class="btn secondary" type="button" onclick="editNewsPost('${id}')">Edit</button>
+        ${status!=='approved'?'<button class="btn success" type="button" onclick="changeNewsStatus(\''+id+'\',\'approved\')">Publish</button>':'<button class="btn secondary" type="button" onclick="changeNewsStatus(\''+id+'\',\'pending\')">Unpublish</button>'}
+        <button class="btn danger" type="button" onclick="deleteNewsPost('${id}')">Delete</button>
+      </div></td>
+    </tr>`;
   }).join('');
 }
 async function loadNewsPosts(){
