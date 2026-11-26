@@ -2380,50 +2380,37 @@ async function startKichsPayment(){
 
 <script id="kchs-admin-entry-script">
 (function(){
-  let adminPanelLoaded = false;
-  let adminPanelLoading = false;
-  window.openKichsAdminPanel = async function(){
-    const overlay = document.getElementById("kchsAdminFrameOverlay");
-    const frame = document.getElementById("kchsAdminFrame");
-    overlay.classList.add("open");
-    overlay.setAttribute("aria-hidden","false");
-    document.body.style.overflow = "hidden";
-    if (adminPanelLoaded || adminPanelLoading) return;
-    adminPanelLoading = true;
-    frame.srcdoc = '<!doctype html><html><body style="font:16px system-ui;padding:24px;color:#183247">Loading Admin Panel…<script id="kichs-shared-logo-setup">(function(){const source=document.querySelector('img[src^="data:image/jpeg;base64,"]');if(!source)return;document.querySelectorAll('img[data-kichs-logo-copy]').forEach(img=>{img.src=source.src;});})();</script>
+  let adminPanelLoaded=false,adminPanelLoading=false;
+  window.openKichsAdminPanel=async function(){
+    const overlay=document.getElementById("kchsAdminFrameOverlay"),frame=document.getElementById("kchsAdminFrame");
+    overlay.classList.add("open");overlay.setAttribute("aria-hidden","false");document.body.style.overflow="hidden";
+    if(adminPanelLoaded||adminPanelLoading)return;
+    adminPanelLoading=true;
+    frame.srcdoc='<!doctype html><html><body style="font:16px system-ui;padding:24px;color:#183247">Loading Admin Panel…<script id="kichs-shared-logo-setup">(function(){const source=document.querySelector('img[src^="data:image/jpeg;base64,"]');if(!source)return;document.querySelectorAll('img[data-kichs-logo-copy]').forEach(img=>{img.src=source.src;});})();</script>
 </body></html>';
-    try {
-      const response = await fetch("./KICHS_Admin_Panel_AUDIT_LOGS-3.html", { cache: "force-cache" });
-      if (!response.ok) throw new Error("HTTP " + response.status);
-      const html = await response.text();
-      if (!html || html.length < 10000) throw new Error("Admin panel file is incomplete.");
-      frame.srcdoc = html;
-      adminPanelLoaded = true;
-    } catch (error) {
-      frame.srcdoc = '<!doctype html><html><body style="font:16px system-ui;padding:24px;color:#b42318">The Admin Panel could not load. Check your internet connection and try again.</body></html>';
-      console.error("KICHS Admin Panel load error:", error);
-    } finally {
-      adminPanelLoading = false;
-    }
+    try{
+      const response=await fetch("./KICHS_Admin_Panel_AUDIT_LOGS-3.html",{cache:"force-cache"});
+      if(!response.ok)throw new Error("HTTP "+response.status);
+      const html=await response.text();
+      if(!html||html.length<10000)throw new Error("Admin panel file is incomplete.");
+      frame.srcdoc=html;adminPanelLoaded=true;
+    }catch(error){
+      frame.srcdoc='<!doctype html><html><body style="font:16px system-ui;padding:24px;color:#b42318">The Admin Panel could not load. Check your internet connection and try again.</body></html>';
+      console.error("KICHS Admin Panel load error:",error);
+    }finally{adminPanelLoading=false;}
   };
-  window.closeKichsAdminPanel = function(){
-    const overlay = document.getElementById("kchsAdminFrameOverlay");
-    overlay.classList.remove("open");
-    overlay.setAttribute("aria-hidden","true");
-    document.body.style.overflow = "";
+  window.closeKichsAdminPanel=function(){
+    const overlay=document.getElementById("kchsAdminFrameOverlay");
+    overlay.classList.remove("open");overlay.setAttribute("aria-hidden","true");document.body.style.overflow="";
   };
-  document.addEventListener("keydown", function(event){
-    if(event.key === "Escape") window.closeKichsAdminPanel();
-  });
-  document.getElementById("kchsAdminFrameOverlay")?.addEventListener("click", function(event){
-    if(event.target === this) window.closeKichsAdminPanel();
-  });
+  document.addEventListener("keydown",event=>{if(event.key==="Escape")window.closeKichsAdminPanel();});
+  document.getElementById("kchsAdminFrameOverlay")?.addEventListener("click",event=>{if(event.target===event.currentTarget)window.closeKichsAdminPanel();});
 })();
 </script>
 
 
 <script id="kichs-settings-functionality">
-const KICHS_APP_VERSION = '1.0.0';
+const KICHS_APP_VERSION = '2.0.4';
 let kichsSettingsReturnPage = 'news';
 const kichsOriginalOpenPage = window.openPage;
 function kichsIsSettingsPage(id){return !!id && id.startsWith('settings')}
