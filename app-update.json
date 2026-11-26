@@ -1,6 +1,6 @@
 {
-  "versionCode": 5,
-  "versionName": "2.0.3",
+  "versionCode": 6,
+  "versionName": "2.0.4",
   "downloadUrl": "https://github.com/nasime-ent/Admin-pannel-/releases/latest",
-  "releaseNotes": "Fixed Admin profile avatar display and changed Administrator label to Admin."
+  "releaseNotes": "Improved loading performance, reduced background activity, lazy-loaded the Admin Panel, and connected the app to the permanent KICHS website."
 }

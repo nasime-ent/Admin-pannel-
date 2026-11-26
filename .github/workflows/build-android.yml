@@ -162,7 +162,7 @@ jobs:
           cp MainActivity.java extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
       - name: Set permanent KICHS website address
         run: |
-          grep -q 'APP_URL = "https://da2f2550.kichs-app.pages.dev/";' extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
+          grep -q 'APP_URL = "https://kichs-app.pages.dev/";' extracted/KICHS_Android_Complete_Project/android/app/src/main/java/ug/ac/kichs/student/MainActivity.java
       - name: Inject reliable Settings fingerprint button
         run: |
           python3 - <<'PY'

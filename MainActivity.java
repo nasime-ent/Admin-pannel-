@@ -50,7 +50,7 @@ import java.util.concurrent.Executor;
 
 public class MainActivity extends FragmentActivity {
     // The existing Cloudflare student app remains the live application/backend.
-    private static final String APP_URL = "https://da2f2550.kichs-app.pages.dev/";
+    private static final String APP_URL = "https://kichs-app.pages.dev/";
     private static final String PREFS = "kichs_native_security";
     private static final String KEY_BIOMETRIC = "biometric_enabled";
 
