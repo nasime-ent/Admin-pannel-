@@ -123,6 +123,48 @@ public class MainActivity extends FragmentActivity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
         webView.setWebViewClient(new WebViewClient() {
+            // Open external app links (WhatsApp, phone, email) outside the WebView.
+            // Keep ordinary HTTP(S) pages inside the KICHS app.
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                if (url == null) return false;
+                String lowerUrl = url.toLowerCase();
+                if (lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://")) {
+                    return false;
+                }
+                try {
+                    Uri target = Uri.parse(url);
+                    Intent externalIntent = new Intent(Intent.ACTION_VIEW, target);
+                    externalIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(externalIntent);
+                    return true;
+                } catch (Exception firstError) {
+                    // WhatsApp may not be installed or may not register its custom
+                    // URL scheme. Fall back to the standard HTTPS click-to-chat URL.
+                    if (lowerUrl.startsWith("whatsapp://send")) {
+                        try {
+                            Uri original = Uri.parse(url);
+                            String phone = original.getQueryParameter("phone");
+                            String message = original.getQueryParameter("text");
+                            if (phone != null && !phone.trim().isEmpty()) {
+                                Uri.Builder fallback = Uri.parse("https://wa.me/" + phone.replaceAll("[^0-9]", ""))
+                                        .buildUpon();
+                                if (message != null) fallback.appendQueryParameter("text", message);
+                                Intent browserIntent = new Intent(Intent.ACTION_VIEW, fallback.build());
+                                startActivity(browserIntent);
+                                return true;
+                            }
+                        } catch (Exception ignored) {
+                            // Show the user a clear message below.
+                        }
+                    }
+                    Toast.makeText(MainActivity.this,
+                            "Unable to open this contact link. Please install or update WhatsApp.",
+                            Toast.LENGTH_LONG).show();
+                    return true;
+                }
+            }
+
             @Override
             public void onPageFinished(WebView view, String url) {
                 pageReady = true;
