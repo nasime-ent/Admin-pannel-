@@ -250,18 +250,18 @@ public class MainActivity extends FragmentActivity {
                 try {
                     Intent pickerIntent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                     pickerIntent.addCategory(Intent.CATEGORY_OPENABLE);
-                    pickerIntent.setType("image/*");
+                    pickerIntent.setType("*/*");
                     pickerIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,
                             fileChooserParams.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
                     startActivityForResult(
-                            Intent.createChooser(pickerIntent, "Choose a profile picture"),
+                            Intent.createChooser(pickerIntent, "Choose a file to upload"),
                             FILE_CHOOSER_REQUEST_CODE);
                     return true;
                 } catch (Exception error) {
                     pendingFileChooserCallback = null;
                     filePathCallback.onReceiveValue(null);
                     Toast.makeText(MainActivity.this,
-                            "Unable to open photos. Please try again.",
+                            "Unable to open files. Please try again.",
                             Toast.LENGTH_LONG).show();
                     return false;
                 }
