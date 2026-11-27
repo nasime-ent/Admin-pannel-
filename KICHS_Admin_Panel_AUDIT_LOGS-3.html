@@ -150,7 +150,7 @@ tr:last-child td{border-bottom:0}
     <div class="card stat"><div><span>Pending Payments</span><strong id="pendingPaymentsCount">0</strong></div><div class="icon"><span class="material-icons">payments</span></div></div>
     <div class="card stat"><div><span>Pending News</span><strong>0</strong></div><div class="icon"><span class="material-icons">pending_actions</span></div></div>
     <div class="card stat"><div><span>Pending Videos</span><strong>0</strong></div><div class="icon"><span class="material-icons">video_library</span></div></div>
-    <div class="card stat"><div><span>Open Complaints</span><strong>0</strong></div><div class="icon"><span class="material-icons">support_agent</span></div></div>
+    <div class="card stat"><div><span>Open Complaints</span><strong id="openComplaintsCount">0</strong></div><div class="icon"><span class="material-icons">support_agent</span></div></div>
   </div>
   <div class="grid2">
     <div>
@@ -259,8 +259,9 @@ tr:last-child td{border-bottom:0}
 
 <section id="complaints" class="page">
   <div class="section-title"><h2>Complaints / Help</h2></div>
+  <div id="complaintsStatus" class="notice" style="margin-bottom:12px">Complaints are private and visible only to authorized administrators.</div>
   <div class="card"><div class="table-wrap"><table><thead><tr><th>Category</th><th>Student</th><th>Message</th><th>Received</th><th>Status</th><th>Actions</th></tr></thead>
-  <tbody><tr><td colspan="6" class="empty">Private student complaints will appear here. Students will not see other complaints.</td></tr></tbody></table></div></div>
+  <tbody id="complaintsTableBody"><tr><td colspan="6" class="empty">Loading complaints...</td></tr></tbody></table></div></div>
 </section>
 
 <section id="notifications" class="page">
@@ -530,6 +531,7 @@ async function verifyAdminAndOpen(){
     appShell.style.display='block';
     authStatus.style.display='none';
     await loadStudents();
+    await loadComplaints();
 
     const chip = document.querySelector('.admin-chip span');
     if (chip) chip.textContent='Admin';
@@ -672,6 +674,112 @@ async function loadStudents(){
     console.error(error);
     setStudentsStatus('Could not load students: ' + error.message, 'error');
     document.getElementById('studentsTableBody').innerHTML = '<tr><td colspan="7" class="empty">Unable to load student records.</td></tr>';
+  }
+}
+
+
+/* ===== Private Student Complaints ===== */
+let complaintRecords = [];
+
+function setComplaintsStatus(message, type='info'){
+  const el=document.getElementById('complaintsStatus');
+  if(!el)return;
+  el.textContent=message;
+  el.style.background=type==='error'?'rgba(217,48,37,.12)':type==='success'?'rgba(22,128,60,.12)':'rgba(11,99,206,.08)';
+  el.style.color=type==='error'?'var(--danger)':type==='success'?'var(--success)':'var(--text)';
+}
+
+function complaintStatusBadge(status){
+  const value=String(status||'unresolved').toLowerCase();
+  const label=value==='resolved'?'RESOLVED':value==='in_progress'?'IN PROGRESS':'OPEN';
+  const cls=value==='resolved'?'active-b':value==='in_progress'?'pending-b':'rejected-b';
+  return '<span class="badge '+cls+'">'+label+'</span>';
+}
+
+function renderComplaints(){
+  const body=document.getElementById('complaintsTableBody');
+  if(!body)return;
+  const openCount=complaintRecords.filter(c=>String(c.status||'unresolved').toLowerCase()!=='resolved').length;
+  const countEl=document.getElementById('openComplaintsCount');
+  if(countEl)countEl.textContent=String(openCount);
+  if(!complaintRecords.length){
+    body.innerHTML='<tr><td colspan="6" class="empty">There are no student complaints at the moment.</td></tr>';
+    return;
+  }
+  body.innerHTML=complaintRecords.map(c=>{
+    const student=escapeHtml(c.student_name||'Student');
+    const schoolId=escapeHtml(c.school_id||'');
+    const received=c.created_at?new Date(c.created_at).toLocaleString():'—';
+    const message=escapeHtml(c.message||'');
+    const category=escapeHtml(c.category||'General');
+    const reply=c.admin_reply?'<div style="margin-top:6px;color:var(--success);font-size:12px"><b>Previous reply:</b> '+escapeHtml(c.admin_reply)+'</div>':'';
+    const nextAction=String(c.status||'unresolved')==='resolved'
+      ? '<button class="btn btn-small" data-complaint-action="reopen" data-id="'+escapeHtml(c.id)+'">Reopen</button>'
+      : '<button class="btn btn-small" data-complaint-action="resolve" data-id="'+escapeHtml(c.id)+'">Resolve</button>';
+    return '<tr><td>'+category+'</td><td><b>'+student+'</b>'+(schoolId?'<div style="font-size:12px;color:var(--muted)">'+schoolId+'</div>':'')+'</td><td style="min-width:220px;white-space:normal">'+message+reply+'</td><td>'+escapeHtml(received)+'</td><td>'+complaintStatusBadge(c.status)+'</td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-small" data-complaint-action="reply" data-id="'+escapeHtml(c.id)+'">Reply</button>'+nextAction+'</div></td></tr>';
+  }).join('');
+  body.querySelectorAll('[data-complaint-action]').forEach(button=>{
+    button.addEventListener('click',()=>handleComplaintAction(button.dataset.id,button.dataset.complaintAction));
+  });
+}
+
+async function loadComplaints(){
+  if(!supabaseClient)return;
+  const body=document.getElementById('complaintsTableBody');
+  if(body)body.innerHTML='<tr><td colspan="6" class="empty">Loading private complaints...</td></tr>';
+  setComplaintsStatus('Loading student complaints...');
+  try{
+    const {data:rows,error}=await supabaseClient.from('complaints')
+      .select('id,user_id,category,message,status,admin_reply,created_at,updated_at')
+      .order('created_at',{ascending:false});
+    if(error)throw error;
+    complaintRecords=rows||[];
+    const userIds=[...new Set(complaintRecords.map(c=>c.user_id).filter(Boolean))];
+    const namesById={};
+    if(userIds.length){
+      const {data:students,error:studentError}=await supabaseClient.from('student_profiles')
+        .select('user_id,full_name,school_id').in('user_id',userIds);
+      if(studentError)console.warn('Could not load student complaint names:',studentError.message);
+      (students||[]).forEach(p=>{namesById[p.user_id]={name:p.full_name,school_id:p.school_id};});
+      const missing=userIds.filter(id=>!namesById[id]);
+      if(missing.length){
+        const {data:profiles}=await supabaseClient.from('profiles').select('id,full_name').in('id',missing);
+        (profiles||[]).forEach(p=>{namesById[p.id]={name:p.full_name,school_id:''};});
+      }
+    }
+    complaintRecords=complaintRecords.map(c=>({...c,student_name:namesById[c.user_id]?.name||'Student',school_id:namesById[c.user_id]?.school_id||''}));
+    renderComplaints();
+    setComplaintsStatus(complaintRecords.length+' private complaint'+(complaintRecords.length===1?'':'s')+' loaded.','success');
+  }catch(error){
+    console.error('KICHS complaint loading failed:',error);
+    if(body)body.innerHTML='<tr><td colspan="6" class="empty">Unable to load complaints. Please refresh and try again.</td></tr>';
+    setComplaintsStatus('Could not load complaints: '+(error.message||'Unknown error'), 'error');
+  }
+}
+
+async function handleComplaintAction(id,action){
+  const complaint=complaintRecords.find(c=>c.id===id);
+  if(!complaint)return;
+  let updates={};
+  if(action==='reply'){
+    const reply=prompt('Write a private reply to this student:',complaint.admin_reply||'');
+    if(reply===null)return;
+    if(!reply.trim()){alert('Please enter a reply before saving.');return;}
+    updates={admin_reply:reply.trim(),status:complaint.status==='resolved'?'resolved':'in_progress',updated_at:new Date().toISOString()};
+  }else if(action==='resolve'){
+    if(!confirm('Mark this complaint as resolved?'))return;
+    updates={status:'resolved',updated_at:new Date().toISOString()};
+  }else if(action==='reopen'){
+    if(!confirm('Reopen this complaint?'))return;
+    updates={status:'unresolved',updated_at:new Date().toISOString()};
+  }else return;
+  try{
+    const {error}=await supabaseClient.from('complaints').update(updates).eq('id',id);
+    if(error)throw error;
+    await loadComplaints();
+  }catch(error){
+    console.error('KICHS complaint update failed:',error);
+    alert('Could not update this complaint: '+(error.message||'Please try again.'));
   }
 }
 
@@ -931,6 +1039,7 @@ function openPage(id){
   if (id === 'payments' && supabaseClient) loadPendingPayments();
   if (id === 'audit' && supabaseClient) loadAuditLogs();
   if (id === 'news' && supabaseClient) loadNewsPosts();
+  if (id === 'complaints' && supabaseClient) loadComplaints();
   if (id === 'resources') loadAdminResources();
   document.querySelectorAll('.nav button[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
   document.getElementById('pageTitle').textContent=titleMap[id]||'Admin Panel';
