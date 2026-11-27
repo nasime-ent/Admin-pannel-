@@ -2097,7 +2097,7 @@ async function upload(){
 let kichsIsAdmin=false;
 let adminStudents=[];
 async function checkKichsAdmin(){try{const {data:{user}}=await supabaseClient.auth.getUser();if(!user)return false;const {data,error}=await supabaseClient.from("user_roles").select("role").eq("user_id",user.id).maybeSingle();if(error)throw error;kichsIsAdmin=String(data?.role||"").toLowerCase()==="admin";const btn=document.getElementById("adminMenuButton");if(btn)btn.style.display=kichsIsAdmin?"flex":"none";return kichsIsAdmin}catch(e){console.warn("Admin role check failed",e);kichsIsAdmin=false;const btn=document.getElementById("adminMenuButton");if(btn)btn.style.display="none";return false}}
-async function openAdminPanel(){menu.style.display="none";if(!(await checkKichsAdmin())){alert("Admin access required.");return}window.location.href="admin.html"}
+async function openAdminPanel(){menu.style.display="none";if(!(await checkKichsAdmin())){alert("Admin access required.");return}openPage("admin");loadKichsAdminComplaints()}
 async function adminCall(body){const {data:{session}}=await supabaseClient.auth.getSession();if(!session)throw new Error("Please sign in first.");const res=await fetch(KICHS_MANUAL_PAYMENT_ADMIN_FUNCTION,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token,"apikey":SUPABASE_ANON_KEY},body:JSON.stringify(body)});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||data.message||"Admin request failed.");return data}
 function escAdmin(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
 
