@@ -628,7 +628,7 @@ html:not(.kic-dark) .chat-item{background:#fff;color:#172b4d}
 <section id="newsPage" class="page active">
 <div class="welcome"><h2 id="welcome"></h2><div class="muted">Latest information from Kiryokya College of Health Sciences.</div></div>
 <div class="title">Latest News</div>
-<div class="news"><div class="newshead"><div class="nicon"><span class="material-icons">campaign</span></div><div><b>Welcome to Kiryokya College</b><div class="date">Official Announcement</div></div></div><p>Welcome to the official Kiryokya College communication platform. Stay updated with school information and important announcements.</p></div>
+<div id="kichsHomeNewsFeed" aria-live="polite"><div class="muted">Loading the latest college news...</div></div>
 </section>
 
 <section id="messagesPage" class="page">
@@ -1109,6 +1109,41 @@ function start(){
   checkKichsAdmin();openPage("news")
 }
 
+// Load Admin-approved news into the student Home/News screen.
+async function loadKichsHomeNews(){
+  const feed=document.getElementById('kichsHomeNewsFeed');
+  if(!feed)return;
+  feed.innerHTML='<div class="muted" style="padding:10px 0">Loading the latest college news...</div>';
+  try{
+    const {data,error}=await supabaseClient.from('news')
+      .select('id,title,content,post_type,pinned,media_url,created_at')
+      .eq('status','approved')
+      .order('pinned',{ascending:false})
+      .order('created_at',{ascending:false})
+      .limit(12);
+    if(error)throw error;
+    const posts=data||[];
+    if(!posts.length){
+      feed.innerHTML='<div class="news"><div class="newshead"><div class="nicon"><span class="material-icons">campaign</span></div><div><b>Welcome to Kiryokya College</b><div class="date">College News</div></div></div><p>There are no new announcements at the moment. Please check again later.</p></div>';
+      return;
+    }
+    feed.innerHTML=posts.map(post=>{
+      const title=esc(post.title||'College Update');
+      const body=esc(post.content||'');
+      const kind=esc((post.post_type||'announcement').replace(/_/g,' '));
+      const date=post.created_at?new Date(post.created_at).toLocaleString():'';
+      const imageUrl=typeof post.media_url==='string'&&/^https:\/\//i.test(post.media_url)?esc(post.media_url):'';
+      return '<article class="news">'+
+        '<div class="newshead"><div class="nicon"><span class="material-icons">campaign</span></div><div style="min-width:0"><b>'+title+'</b><div class="date">'+kind+(post.pinned?' • Pinned':'')+(date?' • '+esc(date):'')+'</div></div></div>'+
+        (imageUrl?'<img src="'+imageUrl+'" alt="" loading="lazy" style="display:block;width:100%;max-height:260px;object-fit:cover;border-radius:10px;margin-top:12px">':'')+
+        '<p style="white-space:pre-wrap">'+body+'</p></article>';
+    }).join('');
+  }catch(error){
+    console.error('KICHS Home News load failed:',error);
+    feed.innerHTML='<div class="news"><b>News is temporarily unavailable.</b><p>Please check your internet connection and try again.</p><button type="button" onclick="loadKichsHomeNews()" style="border:0;border-radius:9px;padding:9px 13px;background:#eaf3ff;color:#0759b8;font-weight:700">Retry</button></div>';
+  }
+}
+
 // KICHS offline file library: selected files are stored locally in IndexedDB.
 let offlineFileFilter='all'; let offlineSourceFilter='all'; let offlineObjectUrls=[]; let offlineDbPromise=null;
 function openOfflineDB(){if(offlineDbPromise)return offlineDbPromise;offlineDbPromise=new Promise((resolve,reject)=>{const req=indexedDB.open('KICHSOfflineLibrary',1);req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains('files')){const st=db.createObjectStore('files',{keyPath:'id'});st.createIndex('addedAt','addedAt')}};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});return offlineDbPromise}
@@ -1271,6 +1306,7 @@ document.querySelectorAll(".bottom button").forEach(x=>x.classList.remove("activ
 const map={news:"nnews",resources:"nres",videos:"nvideos",messages:"nmsg",members:"nmembers",files:"nfiles"};
 if(map[page])document.getElementById(map[page]).classList.add("active");
 menu.style.display="none";scrollTo(0,0);
+if(page==="news")loadKichsHomeNews();
 if(page==="resources")openResources();
 if(page==="videos")loadStudentVideos();
 if(page==="files")renderOfflineFiles();
