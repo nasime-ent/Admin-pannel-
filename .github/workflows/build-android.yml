@@ -75,10 +75,10 @@ jobs:
 
           manifest = app / "AndroidManifest.xml"
           xml = manifest.read_text(encoding="utf-8")
-          match = re.search(r"<application\\b[^>]*>", xml, flags=re.DOTALL)
+          match = re.search(r"<application\b[^>]*>", xml, flags=re.DOTALL)
           if not match:
               raise SystemExit("Could not find Android application element")
-          tag = re.sub(r'\\sandroid:theme="[^"]*"', "", match.group(0))
+          tag = re.sub(r'\sandroid:theme="[^"]*"', "", match.group(0))
           tag = tag[:-1] + ' android:theme="@style/KichsSystemTheme">'
           xml = xml[:match.start()] + tag + xml[match.end():]
           manifest.write_text(xml, encoding="utf-8")
