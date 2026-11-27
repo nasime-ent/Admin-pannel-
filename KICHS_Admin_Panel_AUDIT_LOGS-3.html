@@ -777,13 +777,17 @@ async function loadVideos(){
         const preview=row.video_url
           ? '<video controls playsinline preload="metadata" src="'+escapeHtml(row.video_url)+'" style="width:170px;max-width:100%;max-height:110px;background:#111;border-radius:8px"></video>'
           : '<small>Preview unavailable</small>';
-        const actions=row.status==='pending'
-          ? '<div class="actions"><button class="btn success" data-video-action="approve" data-id="'+escapeHtml(row.id)+'">Approve</button><button class="btn danger" data-video-action="reject" data-id="'+escapeHtml(row.id)+'">Reject</button></div>'
+        const reviewActions=row.status==='pending'
+          ? '<button class="btn success" data-video-action="approve" data-id="'+escapeHtml(row.id)+'">Approve</button><button class="btn danger" data-video-action="reject" data-id="'+escapeHtml(row.id)+'">Reject</button>'
           : '<small>'+(row.review_note?escapeHtml(row.review_note):'Reviewed')+'</small>';
+        const actions='<div class="actions">'+reviewActions+'<button class="btn danger" data-video-delete="'+escapeHtml(row.id)+'" type="button">Delete</button></div>';
         return '<tr><td>'+preview+'<br><b>'+escapeHtml(row.title)+'</b></td><td>'+escapeHtml(row.student_name)+'</td><td>'+Number(row.duration_seconds||0).toFixed(1)+' sec</td><td>'+new Date(row.created_at).toLocaleString()+'</td><td><span class="badge '+statusClass+'">'+escapeHtml(row.status.toUpperCase())+'</span></td><td>'+actions+'</td></tr>';
       }).join('');
       body.querySelectorAll('[data-video-action]').forEach(button=>{
         button.addEventListener('click',()=>reviewStudentVideo(button.dataset.id,button.dataset.videoAction));
+      });
+      body.querySelectorAll('[data-video-delete]').forEach(button=>{
+        button.addEventListener('click',()=>deleteStudentVideo(button.dataset.videoDelete));
       });
     }
     setVideoApprovalStatus(pending+' video'+(pending===1?' is':'s are')+' waiting for Admin review.',false);
@@ -793,6 +797,28 @@ async function loadVideos(){
     if(body)body.innerHTML='<tr><td colspan="6" class="empty">Video submissions could not be loaded. Refresh and try again.</td></tr>';
   }
 }
+async function deleteStudentVideo(id){
+  const row=videoSubmissionCache.find(item=>item.id===id);
+  if(!row)return;
+  if(!window.confirm('Permanently delete "'+row.title+'" and its uploaded video file? This cannot be undone.'))return;
+  try{
+    const {data:{user},error:userError}=await supabaseClient.auth.getUser();
+    if(userError||!user)throw new Error('Your Admin session has expired. Please sign in again.');
+    const {data:role,error:roleError}=await supabaseClient.from('user_roles').select('role').eq('user_id',user.id).maybeSingle();
+    if(roleError)throw roleError;
+    if(String(role?.role||'').toLowerCase()!=='admin')throw new Error('Only an authorized Admin can delete videos.');
+    const {error:storageError}=await supabaseClient.storage.from('kichs-student-videos').remove([row.storage_path]);
+    if(storageError)throw new Error('The video file could not be deleted: '+storageError.message);
+    const {error:deleteError}=await supabaseClient.from('video_submissions').delete().eq('id',id);
+    if(deleteError)throw new Error('The video file was removed, but its submission record could not be deleted: '+deleteError.message);
+    await loadVideos();
+    alert('Video and its submission record have been deleted.');
+  }catch(error){
+    console.error('KICHS video deletion failed:',error);
+    alert('Could not delete the video: '+(error?.message||'Please try again.'));
+  }
+}
+
 async function reviewStudentVideo(id,action){
   const row=videoSubmissionCache.find(item=>item.id===id);
   if(!row||row.status!=='pending')return;
