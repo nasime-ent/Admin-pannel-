@@ -149,7 +149,7 @@ tr:last-child td{border-bottom:0}
     <div class="card stat"><div><span>Total Students</span><strong>0</strong></div><div class="icon"><span class="material-icons">groups</span></div></div>
     <div class="card stat"><div><span>Pending Payments</span><strong id="pendingPaymentsCount">0</strong></div><div class="icon"><span class="material-icons">payments</span></div></div>
     <div class="card stat"><div><span>Pending News</span><strong>0</strong></div><div class="icon"><span class="material-icons">pending_actions</span></div></div>
-    <div class="card stat"><div><span>Pending Videos</span><strong>0</strong></div><div class="icon"><span class="material-icons">video_library</span></div></div>
+    <div class="card stat"><div><span>Pending Videos</span><strong id="pendingVideosCount">0</strong></div><div class="icon"><span class="material-icons">video_library</span></div></div>
     <div class="card stat"><div><span>Open Complaints</span><strong id="openComplaintsCount">0</strong></div><div class="icon"><span class="material-icons">support_agent</span></div></div>
   </div>
   <div class="grid2">
@@ -249,12 +249,12 @@ tr:last-child td{border-bottom:0}
 </section>
 
 <section id="videos" class="page">
-  <div class="section-title"><h2>Video Approval</h2></div>
-  <div class="card">
-    <div class="notice">Student videos must be reviewed before they become public. The school rule is a maximum length of 45 seconds.</div>
-    <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Video</th><th>Sender</th><th>Duration</th><th>Status</th><th>Actions</th></tr></thead>
-    <tbody><tr><td colspan="5" class="empty">No pending videos loaded yet.</td></tr></tbody></table></div>
-  </div>
+  <div class="section-title"><h2>Video Approval</h2><button class="btn secondary" type="button" onclick="loadVideos()">Refresh</button></div>
+  <div id="videoApprovalStatus" class="notice" style="margin-bottom:12px">Review student videos before publishing. Maximum video length: 45 seconds.</div>
+  <div id="videoAdminNotifications" class="notice" style="margin-bottom:12px">Loading new video submission notifications...</div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Video</th><th>Sender</th><th>Duration</th><th>Submitted</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody id="videoTableBody"><tr><td colspan="6" class="empty">Loading student videos...</td></tr></tbody>
+  </table></div></div>
 </section>
 
 <section id="complaints" class="page">
@@ -723,6 +723,111 @@ function renderComplaints(){
   });
 }
 
+
+let videoSubmissionCache=[];
+function setVideoApprovalStatus(message,isError){
+  const el=document.getElementById('videoApprovalStatus');if(!el)return;
+  el.textContent=message;el.style.color=isError?'var(--danger)':'var(--text)';
+}
+async function loadVideos(){
+  if(!supabaseClient)return;
+  const body=document.getElementById('videoTableBody');
+  if(body)body.innerHTML='<tr><td colspan="6" class="empty">Loading student videos...</td></tr>';
+  setVideoApprovalStatus('Loading student video submissions...',false);
+  try{
+    const {data:rows,error}=await supabaseClient.from('video_submissions')
+      .select('id,student_id,title,description,storage_path,mime_type,file_size,duration_seconds,status,review_note,created_at')
+      .order('created_at',{ascending:false});
+    if(error)throw error;
+    videoSubmissionCache=rows||[];
+    const userIds=[...new Set(videoSubmissionCache.map(row=>row.student_id).filter(Boolean))];
+    const names={};
+    if(userIds.length){
+      const {data:students}=await supabaseClient.from('student_profiles').select('user_id,full_name,school_id').in('user_id',userIds);
+      (students||[]).forEach(row=>{names[row.user_id]=row.full_name;});
+      const missing=userIds.filter(id=>!names[id]);
+      if(missing.length){
+        const {data:profiles}=await supabaseClient.from('profiles').select('id,full_name').in('id',missing);
+        (profiles||[]).forEach(row=>{names[row.id]=row.full_name;});
+      }
+    }
+    const pending=videoSubmissionCache.filter(row=>row.status==='pending').length;
+    const count=document.getElementById('pendingVideosCount');if(count)count.textContent=String(pending);
+    const notificationBox=document.getElementById('videoAdminNotifications');
+    if(notificationBox){
+      const {data:notices,error:noticeError}=await supabaseClient.from('admin_notifications')
+        .select('id,title,message,created_at,is_read').eq('type','video_submission')
+        .order('created_at',{ascending:false}).limit(5);
+      notificationBox.innerHTML=noticeError
+        ? 'Video submissions are listed below. Notification details are temporarily unavailable.'
+        : (notices||[]).length
+          ? '<b>New video submissions</b><ul style="margin:7px 0 0 18px">'+notices.map(n=>'<li>'+escapeHtml(n.title)+' — '+escapeHtml(n.message)+' <small>'+new Date(n.created_at).toLocaleString()+'</small></li>').join('')+'</ul>'
+          : 'No new video submission notifications.';
+    }
+    if(!body)return;
+    if(!videoSubmissionCache.length){
+      body.innerHTML='<tr><td colspan="6" class="empty">No student videos have been submitted yet.</td></tr>';
+    }else{
+      const prepared=await Promise.all(videoSubmissionCache.map(async row=>{
+        const {data,error}=await supabaseClient.storage.from('kichs-student-videos').createSignedUrl(row.storage_path,3600);
+        return {...row,student_name:names[row.student_id]||'KICHS Student',video_url:error?null:data?.signedUrl||null};
+      }));
+      body.innerHTML=prepared.map(row=>{
+        const statusClass=row.status==='approved'?'active-b':row.status==='rejected'?'rejected-b':'pending-b';
+        const preview=row.video_url
+          ? '<video controls playsinline preload="metadata" src="'+escapeHtml(row.video_url)+'" style="width:170px;max-width:100%;max-height:110px;background:#111;border-radius:8px"></video>'
+          : '<small>Preview unavailable</small>';
+        const actions=row.status==='pending'
+          ? '<div class="actions"><button class="btn success" data-video-action="approve" data-id="'+escapeHtml(row.id)+'">Approve</button><button class="btn danger" data-video-action="reject" data-id="'+escapeHtml(row.id)+'">Reject</button></div>'
+          : '<small>'+(row.review_note?escapeHtml(row.review_note):'Reviewed')+'</small>';
+        return '<tr><td>'+preview+'<br><b>'+escapeHtml(row.title)+'</b></td><td>'+escapeHtml(row.student_name)+'</td><td>'+Number(row.duration_seconds||0).toFixed(1)+' sec</td><td>'+new Date(row.created_at).toLocaleString()+'</td><td><span class="badge '+statusClass+'">'+escapeHtml(row.status.toUpperCase())+'</span></td><td>'+actions+'</td></tr>';
+      }).join('');
+      body.querySelectorAll('[data-video-action]').forEach(button=>{
+        button.addEventListener('click',()=>reviewStudentVideo(button.dataset.id,button.dataset.videoAction));
+      });
+    }
+    setVideoApprovalStatus(pending+' video'+(pending===1?' is':'s are')+' waiting for Admin review.',false);
+  }catch(error){
+    console.error('KICHS Admin video load failed:',error);
+    setVideoApprovalStatus('Could not load video submissions: '+(error?.message||'Please try again.'),true);
+    if(body)body.innerHTML='<tr><td colspan="6" class="empty">Video submissions could not be loaded. Refresh and try again.</td></tr>';
+  }
+}
+async function reviewStudentVideo(id,action){
+  const row=videoSubmissionCache.find(item=>item.id===id);
+  if(!row||row.status!=='pending')return;
+  const status=action==='approve'?'approved':'rejected';
+  let note='';
+  if(status==='rejected'){
+    note=(window.prompt('Enter a reason for rejecting this video:')||'').trim();
+    if(!note){alert('Please provide a rejection reason. No changes were made.');return;}
+  }else{
+    if(!window.confirm('Approve this video and make it visible to KICHS students?'))return;
+    note=(window.prompt('Optional note for the student:')||'').trim();
+  }
+  try{
+    const {data:{user},error:userError}=await supabaseClient.auth.getUser();
+    if(userError||!user)throw new Error('Your Admin session has expired. Please sign in again.');
+    const {error}=await supabaseClient.from('video_submissions').update({
+      status:status,reviewed_by:user.id,reviewed_at:new Date().toISOString(),review_note:note||null
+    }).eq('id',id).eq('status','pending');
+    if(error)throw error;
+    const {error:notificationError}=await supabaseClient.from('notifications').insert({
+      recipient_id:row.student_id,
+      notification_type:status==='approved'?'video_approved':'video_rejected',
+      title:status==='approved'?'Your video was approved':'Your video needs changes',
+      body:status==='approved'?'Your video "'+row.title+'" has been approved and is now available to students.':('Your video "'+row.title+'" was not approved. Reason: '+note),
+      related_id:id
+    });
+    await loadVideos();
+    if(notificationError)alert('Video review was saved, but the student notification could not be sent: '+notificationError.message);
+    else alert(status==='approved'?'Video approved and published to students.':'Video rejected. The student has been notified.');
+  }catch(error){
+    console.error('KICHS video review failed:',error);
+    alert('Could not update the video: '+(error?.message||'Please try again.'));
+  }
+}
+
 async function loadComplaints(){
   if(!supabaseClient)return;
   const body=document.getElementById('complaintsTableBody');
@@ -1040,6 +1145,7 @@ function openPage(id){
   if (id === 'audit' && supabaseClient) loadAuditLogs();
   if (id === 'news' && supabaseClient) loadNewsPosts();
   if (id === 'complaints' && supabaseClient) loadComplaints();
+  if (id === 'videos' && supabaseClient) loadVideos();
   if (id === 'resources') loadAdminResources();
   document.querySelectorAll('.nav button[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
   document.getElementById('pageTitle').textContent=titleMap[id]||'Admin Panel';
