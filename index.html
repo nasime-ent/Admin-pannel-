@@ -2045,9 +2045,9 @@ async function upload(){
 }
 <\/script>`;
   const url=URL.createObjectURL(new Blob([page],{type:"text/html"}));
-  const w=window.open(url,"_blank");
-  if(!w){const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";a.textContent="Open upload page";document.body.appendChild(a);a.click();a.remove();}
-  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  // Load the upload form in this WebView as a separate page in its history.
+  // Android WebView cannot reliably create a second window for a blob: URL.
+  window.location.href=url;
 }
 </script>
 
