@@ -627,8 +627,8 @@ html:not(.kic-dark) .chat-item{background:#fff;color:#172b4d}
 <main>
 <section id="newsPage" class="page active">
 <div class="welcome"><h2 id="welcome"></h2><div class="muted">Latest information from Kiryokya College of Health Sciences.</div></div>
-<div class="title">Latest News</div>
-<div id="kichsHomeNewsFeed" aria-live="polite"><div class="muted">Loading the latest college news...</div></div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:20px"><div class="title" style="margin:0">Latest News</div><button type="button" onclick="loadStudentNews()" style="border:0;border-radius:20px;padding:8px 12px;background:#e8f1ff;color:#0759b8;font-weight:600"><span class="material-icons" style="font-size:16px;vertical-align:middle">refresh</span> Refresh</button></div>
+<div id="kichsStudentNewsFeed" aria-live="polite"><div class="panel">Loading latest news…</div></div>
 </section>
 
 <section id="messagesPage" class="page">
@@ -1096,6 +1096,35 @@ function subscribeKichsNotifications(){
 }
 function unsubscribeKichsNotifications(){if(kichsNotificationChannel){supabaseClient.removeChannel(kichsNotificationChannel);kichsNotificationChannel=null}}
 
+
+async function loadStudentNews(){
+  const feed=document.getElementById('kichsStudentNewsFeed');
+  if(!feed)return;
+  feed.innerHTML='<div class="panel">Loading latest news…</div>';
+  try{
+    const {data,error}=await supabaseClient.from('news').select('id,title,content,post_type,pinned,media_url,attachment_url,attachment_type,created_at').eq('status','approved').order('pinned',{ascending:false}).order('created_at',{ascending:false});
+    if(error)throw error;
+    const posts=Array.isArray(data)?data:[];
+    if(!posts.length){feed.innerHTML='<div class="panel" style="margin-top:12px;color:#71808d">There are no published news updates yet.</div>';return;}
+    const safeUrl=value=>{try{const u=new URL(String(value||''),location.href);return (u.protocol==='https:'||u.protocol==='http:')?u.href:''}catch(_){return ''}};
+    feed.innerHTML=posts.map(post=>{
+      const title=post.title?esc(post.title):'KICHS Update';
+      const content=esc(post.content||'').replace(/\n/g,'<br>');
+      const type=String(post.post_type||'community').toLowerCase()==='official'?'Official Announcement':'College Update';
+      const date=post.created_at?new Date(post.created_at).toLocaleString():'';
+      const media=safeUrl(post.media_url),attachment=safeUrl(post.attachment_url);
+      let mediaHtml='';
+      if(media){const mt=String(post.attachment_type||'').toLowerCase();
+        if(mt.includes('image')||/\.(png|jpe?g|gif|webp)(\?|$)/i.test(media))mediaHtml='<img src="'+esc(media)+'" alt="News image" loading="lazy" style="display:block;max-width:100%;max-height:360px;object-fit:contain;border-radius:10px;margin-top:12px">';
+        else if(mt.includes('video')||/\.(mp4|webm|mov)(\?|$)/i.test(media))mediaHtml='<video controls playsinline preload="metadata" style="display:block;width:100%;max-height:360px;border-radius:10px;margin-top:12px"><source src="'+esc(media)+'"></video>';
+        else mediaHtml='<p style="margin-top:10px"><a href="'+esc(media)+'" target="_blank" rel="noopener">Open attached media</a></p>';
+      }
+      const attachmentHtml=attachment?'<p style="margin-top:10px"><a href="'+esc(attachment)+'" target="_blank" rel="noopener">View attachment</a></p>':'';
+      return '<article class="news" style="margin-top:12px"><div class="newshead"><div class="nicon"><span class="material-icons">campaign</span></div><div style="min-width:0"><b>'+title+'</b><div class="date">'+esc(type)+(date?' · '+esc(date):'')+(post.pinned?' · Pinned':'')+'</div></div></div><p>'+content+'</p>'+mediaHtml+attachmentHtml+'</article>';
+    }).join('');
+  }catch(error){console.error('KICHS student news load failed:',error);feed.innerHTML='<div class="panel" style="margin-top:12px;color:#b42318">News could not be loaded. Please tap Refresh or check your internet connection.</div>';}
+}
+
 function start(){
   auth.style.display="none";app.style.display="block";
   subscribeKichsNotifications();
@@ -1106,7 +1135,7 @@ function start(){
   if(current.profile_picture_url){avatar.innerHTML='<img src="'+esc(current.profile_picture_url)+'" alt="Profile picture">';}else{avatar.textContent=current.full_name.charAt(0).toUpperCase();}
   const topAvatar=document.getElementById("topProfileAvatar");
   if(topAvatar){if(current.profile_picture_url){topAvatar.innerHTML='<img src="'+esc(current.profile_picture_url)+'" alt="">';}else{topAvatar.textContent=(current.full_name||"?").trim().charAt(0).toUpperCase()||"?";}}
-  checkKichsAdmin();openPage("news")
+  checkKichsAdmin();openPage("news");loadStudentNews()
 }
 
 // Load Admin-approved news into the student Home/News screen.
@@ -1307,6 +1336,7 @@ const map={news:"nnews",resources:"nres",videos:"nvideos",messages:"nmsg",member
 if(map[page])document.getElementById(map[page]).classList.add("active");
 menu.style.display="none";scrollTo(0,0);
 if(page==="news")loadKichsHomeNews();
+if(page==="news")loadStudentNews();
 if(page==="resources")openResources();
 if(page==="videos")loadStudentVideos();
 if(page==="files")renderOfflineFiles();
