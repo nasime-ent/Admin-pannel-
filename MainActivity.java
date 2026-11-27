@@ -551,6 +551,10 @@ public class MainActivity extends FragmentActivity {
                 new BiometricPrompt.PromptInfo.Builder()
                         .setTitle("KICHS Student App")
                         .setSubtitle(subtitle)
+                        // Android requires a non-empty negative button label
+                        // when only biometric authenticators are allowed.
+                        // This also provides a clear route to the KICHS PIN.
+                        .setNegativeButtonText("Use KICHS PIN")
                         .setAllowedAuthenticators(
                                 BiometricManager.Authenticators.BIOMETRIC_WEAK
                         );
