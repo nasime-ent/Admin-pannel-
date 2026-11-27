@@ -2387,7 +2387,7 @@ async function startKichsPayment(){
     adminPanelLoading=true;
     frame.srcdoc='<!doctype html><html><body style="font:16px system-ui;padding:24px;color:#183247">Loading Admin Panel…</body></html>';
     try{
-      const response=await fetch("./KICHS_Admin_Panel_AUDIT_LOGS-3.html",{cache:"force-cache"});
+      const response=await fetch("./KICHS_Admin_Panel_AUDIT_LOGS-3.html?v=complaints-fix-1",{cache:"no-store"});
       if(!response.ok)throw new Error("HTTP "+response.status);
       const html=await response.text();
       if(!html||html.length<10000)throw new Error("Admin panel file is incomplete.");
