@@ -880,6 +880,14 @@ public class MainActivity extends FragmentActivity {
     // Keep KICHS fully immersive. A swipe from the screen edge temporarily
     // reveals Android's status/navigation bars, then Android hides them again.
     private void applyKichsImmersiveMode() {
+        // Allow the app window to draw into the display cutout area (camera hole/notch).
+        // SHORT_EDGES supports centered punch-hole cameras and top-edge notches in portrait.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
+            layoutParams.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            getWindow().setAttributes(layoutParams);
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             getWindow().setDecorFitsSystemWindows(false);
             getWindow().setStatusBarColor(Color.TRANSPARENT);
