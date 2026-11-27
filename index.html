@@ -1117,9 +1117,9 @@ async function loadStudentNews(){
       if(media){const mt=String(post.attachment_type||'').toLowerCase();
         if(mt.includes('image')||/\.(png|jpe?g|gif|webp)(\?|$)/i.test(media))mediaHtml='<img src="'+esc(media)+'" alt="News image" loading="lazy" style="display:block;max-width:100%;max-height:360px;object-fit:contain;border-radius:10px;margin-top:12px">';
         else if(mt.includes('video')||/\.(mp4|webm|mov)(\?|$)/i.test(media))mediaHtml='<video controls playsinline preload="metadata" style="display:block;width:100%;max-height:360px;border-radius:10px;margin-top:12px"><source src="'+esc(media)+'"></video>';
-        else mediaHtml='<p style="margin-top:10px"><a href="'+esc(media)+'" target="_blank" rel="noopener">Open attached media</a></p>';
+        else mediaHtml='';
       }
-      const attachmentHtml=attachment?'<p style="margin-top:10px"><a href="'+esc(attachment)+'" target="_blank" rel="noopener">View attachment</a></p>':'';
+      const attachmentHtml='';
       return '<article class="news" style="margin-top:12px"><div class="newshead"><div class="nicon"><span class="material-icons">campaign</span></div><div style="min-width:0"><b>'+title+'</b><div class="date">'+esc(type)+(date?' · '+esc(date):'')+(post.pinned?' · Pinned':'')+'</div></div></div><p>'+content+'</p>'+mediaHtml+attachmentHtml+'</article>';
     }).join('');
   }catch(error){console.error('KICHS student news load failed:',error);feed.innerHTML='<div class="panel" style="margin-top:12px;color:#b42318">News could not be loaded. Please tap Refresh or check your internet connection.</div>';}
