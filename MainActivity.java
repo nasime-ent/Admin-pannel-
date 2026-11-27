@@ -132,6 +132,13 @@ public class MainActivity extends FragmentActivity {
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 if (url == null) return false;
                 String lowerUrl = url.toLowerCase();
+                // Blob/data URLs are internal pages and downloads created by the
+                // KICHS website. Keep them inside WebView; never send them to an
+                // external app handler (which previously showed the WhatsApp error).
+                if (lowerUrl.startsWith("blob:") || lowerUrl.startsWith("data:")
+                        || lowerUrl.equals("about:blank")) {
+                    return false;
+                }
                 if (lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://")) {
                     return false;
                 }
