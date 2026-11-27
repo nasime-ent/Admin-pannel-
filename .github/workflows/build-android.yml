@@ -38,6 +38,53 @@ jobs:
           test -f extracted/KICHS_Android_Complete_Project/android/settings.gradle
           test -f extracted/KICHS_Android_Complete_Project/android/app/build.gradle
 
+      - name: Configure Android system Light and Dark theme
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          app = Path("extracted/KICHS_Android_Complete_Project/android/app/src/main")
+          values = app / "res" / "values"
+          night = app / "res" / "values-night"
+          values.mkdir(parents=True, exist_ok=True)
+          night.mkdir(parents=True, exist_ok=True)
+
+          light_theme = """<?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="KichsSystemTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+                  <item name="android:colorAccent">#0866D6</item>
+                  <item name="android:statusBarColor">#101820</item>
+                  <item name="android:navigationBarColor">#101820</item>
+                  <item name="android:windowLightStatusBar">false</item>
+              </style>
+          </resources>
+          """
+          dark_theme = """<?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="KichsSystemTheme" parent="@android:style/Theme.Material.NoActionBar">
+                  <item name="android:colorAccent">#0866D6</item>
+                  <item name="android:statusBarColor">#101820</item>
+                  <item name="android:navigationBarColor">#101820</item>
+                  <item name="android:windowLightStatusBar">false</item>
+              </style>
+          </resources>
+          """
+          (values / "styles.xml").write_text(light_theme, encoding="utf-8")
+          (night / "styles.xml").write_text(dark_theme, encoding="utf-8")
+
+          manifest = app / "AndroidManifest.xml"
+          xml = manifest.read_text(encoding="utf-8")
+          match = re.search(r"<application\\b[^>]*>", xml, flags=re.DOTALL)
+          if not match:
+              raise SystemExit("Could not find Android application element")
+          tag = re.sub(r'\\sandroid:theme="[^"]*"', "", match.group(0))
+          tag = tag[:-1] + ' android:theme="@style/KichsSystemTheme">'
+          xml = xml[:match.start()] + tag + xml[match.end():]
+          manifest.write_text(xml, encoding="utf-8")
+          print("Configured native KICHS theme to follow Android system night mode.")
+          PY
+
       - name: Install official KICHS launcher icon
         run: |
           python3 -m pip install --quiet pillow
