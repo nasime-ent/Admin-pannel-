@@ -639,6 +639,32 @@ html:not(.kic-dark) .chat-item{background:#fff;color:#172b4d}
 
 <section id="membersPage" class="page"><button class="back" onclick="openPage('news')"><span class="material-icons">arrow_back</span>Back</button><h2>Members</h2><input style="margin:14px 0" id="memberSearch" placeholder="Search members..." oninput="renderMembers(this.value)"><div id="members"></div></section>
 
+
+<section id="videosPage" class="page">
+  <button class="back" onclick="openPage('news')"><span class="material-icons">arrow_back</span>Back</button>
+  <div class="panel">
+    <h2><span class="material-icons" style="vertical-align:middle;color:#0b63ce">video_library</span> Student Videos</h2>
+    <p>Share a short learning or college-related video. Every submission is reviewed by the Admin before it is published to students. Maximum video length: 45 seconds.</p>
+    <label style="display:block;font-weight:700;margin-top:14px">Video title</label>
+    <input id="studentVideoTitle" maxlength="120" placeholder="Enter a clear video title" style="width:100%;padding:12px;border:1px solid #cbd9e8;border-radius:10px;margin-top:6px">
+    <label style="display:block;font-weight:700;margin-top:12px">Description (optional)</label>
+    <textarea id="studentVideoDescription" rows="3" maxlength="500" placeholder="Briefly describe your video" style="width:100%;padding:12px;border:1px solid #cbd9e8;border-radius:10px;margin-top:6px;resize:vertical"></textarea>
+    <label style="display:block;font-weight:700;margin-top:12px">Choose video (MP4, WebM or MOV)</label>
+    <input id="studentVideoFile" type="file" accept="video/mp4,video/webm,video/quicktime" style="width:100%;margin-top:8px">
+    <button id="studentVideoSubmitBtn" class="primary" type="button" onclick="submitStudentVideo()" style="width:100%;margin-top:12px"><span class="material-icons" style="vertical-align:middle">cloud_upload</span> Submit Video for Approval</button>
+    <div id="studentVideoUploadStatus" role="status" style="margin-top:10px;font-size:13px"></div>
+  </div>
+  <div class="panel">
+    <h3>Approved Videos</h3>
+    <p>Videos approved by the Admin are available here for all signed-in students.</p>
+    <div id="approvedVideoFeed"><div class="muted">Loading approved videos...</div></div>
+  </div>
+  <div class="panel">
+    <h3>My Video Submissions</h3>
+    <div id="myVideoSubmissions"><div class="muted">Loading your submissions...</div></div>
+  </div>
+</section>
+
 <section id="resourcesPage" class="page">
   <button class="back" onclick="openPage('news')"><span class="material-icons">arrow_back</span>Back</button>
   <div class="resource-head">
@@ -863,6 +889,7 @@ html:not(.kic-dark) .chat-item{background:#fff;color:#172b4d}
 <nav class="bottom">
 <button id="nnews" class="active" onclick="openPage('news')"><span class="material-icons">home</span>News</button>
 <button id="nres" onclick="openPage('resources')"><span class="material-icons">folder</span>Resources</button>
+<button id="nvideos" onclick="openPage('videos')"><span class="material-icons">video_library</span>Videos</button>
 <button id="nmsg" onclick="openPage('messages')"><span class="nav-icon-wrap"><span class="material-icons">chat</span><span id="kichsChatUnreadBadge" class="chat-unread-badge" aria-label="Unread messages" aria-live="polite"></span></span>Chat</button>
 <button id="nmembers" onclick="openPage('members')"><span class="material-icons">groups</span>Members</button>
 <button id="nfiles" onclick="openPage('files')"><span class="material-icons">folder_open</span>Files</button>
@@ -1129,14 +1156,123 @@ async function openOfflineFile(id){try{const db=await openOfflineDB();const f=aw
 function closeOfflineViewer(revoke=true){const viewer=document.getElementById('offlineViewer');if(!viewer)return;viewer.classList.remove('show');document.getElementById('offlineViewerBody').innerHTML='';if(revoke){offlineObjectUrls.forEach(URL.revokeObjectURL);offlineObjectUrls=[]}}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeOfflineViewer()});
 
+
+async function getKichsVideoDuration(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file);
+    const video=document.createElement('video');
+    video.preload='metadata';
+    video.onloadedmetadata=()=>{
+      const duration=Number(video.duration);
+      URL.revokeObjectURL(url);
+      if(!Number.isFinite(duration)||duration<=0)reject(new Error('The selected video duration could not be read.'));
+      else resolve(duration);
+    };
+    video.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('This video could not be opened. Choose an MP4, WebM or MOV file.'));};
+    video.src=url;
+  });
+}
+async function submitStudentVideo(){
+  const titleEl=document.getElementById('studentVideoTitle');
+  const descEl=document.getElementById('studentVideoDescription');
+  const fileEl=document.getElementById('studentVideoFile');
+  const statusEl=document.getElementById('studentVideoUploadStatus');
+  const button=document.getElementById('studentVideoSubmitBtn');
+  const title=(titleEl?.value||'').trim();
+  const description=(descEl?.value||'').trim();
+  const file=fileEl?.files?.[0];
+  if(!title||title.length<3){statusEl.textContent='Enter a video title of at least 3 characters.';return;}
+  if(!file){statusEl.textContent='Choose a video file first.';return;}
+  if(file.size>157286400){statusEl.textContent='The video is too large. Maximum file size is 150 MB.';return;}
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  const mime=file.type||({'mp4':'video/mp4','webm':'video/webm','mov':'video/quicktime'}[ext]||'');
+  if(!['video/mp4','video/webm','video/quicktime'].includes(mime)){statusEl.textContent='Use an MP4, WebM or MOV video.';return;}
+  button.disabled=true;button.textContent='Checking video...';statusEl.textContent='Checking video duration and your account...';
+  let storagePath=null;
+  try{
+    const {data:{user},error:userError}=await supabaseClient.auth.getUser();
+    if(userError||!user)throw new Error('Please sign in to your KICHS student account before uploading.');
+    const duration=await getKichsVideoDuration(file);
+    if(duration>45){throw new Error('This video is '+Math.ceil(duration)+' seconds long. The maximum allowed length is 45 seconds.');}
+    const token=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));
+    storagePath=user.id+'/'+token+'.'+(ext||'mp4');
+    button.textContent='Uploading video...';statusEl.textContent='Uploading your video securely. Please keep the app open.';
+    const {error:uploadError}=await supabaseClient.storage.from('kichs-student-videos').upload(storagePath,file,{cacheControl:'3600',contentType:mime,upsert:false});
+    if(uploadError)throw uploadError;
+    const {data:record,error:insertError}=await supabaseClient.from('video_submissions').insert({
+      student_id:user.id,title:title,description:description||null,storage_path:storagePath,
+      mime_type:mime,file_size:file.size,duration_seconds:Number(duration.toFixed(2)),status:'pending'
+    }).select('id').single();
+    if(insertError){await supabaseClient.storage.from('kichs-student-videos').remove([storagePath]);storagePath=null;throw insertError;}
+    const {error:noticeError}=await supabaseClient.from('admin_notifications').insert({
+      type:'video_submission',title:'New student video for approval',
+      message:title+' is waiting for Admin review.',student_user_id:user.id,
+      metadata:{video_id:record.id,video_title:title}
+    });
+    statusEl.style.color='#15803d';
+    statusEl.textContent=noticeError
+      ? 'Video submitted successfully. Admin can review it in Video Approval.'
+      : 'Video submitted successfully. The Admin has been notified. It will appear to students after approval.';
+    titleEl.value='';descEl.value='';fileEl.value='';
+    await loadStudentVideos();
+  }catch(error){
+    console.error('KICHS student video submission failed:',error);
+    statusEl.style.color='#b42318';
+    statusEl.textContent=error?.message||'Video upload failed. Please try again.';
+  }finally{
+    button.disabled=false;button.innerHTML='<span class="material-icons" style="vertical-align:middle">cloud_upload</span> Submit Video for Approval';
+  }
+}
+async function loadStudentVideos(){
+  const feed=document.getElementById('approvedVideoFeed');
+  const mine=document.getElementById('myVideoSubmissions');
+  if(!feed||!mine)return;
+  feed.innerHTML='<div class="muted">Loading approved videos...</div>';
+  mine.innerHTML='<div class="muted">Loading your submissions...</div>';
+  try{
+    const {data:{user},error:userError}=await supabaseClient.auth.getUser();
+    if(userError||!user)throw new Error('Please sign in again to view videos.');
+    const {data:rows,error}=await supabaseClient.from('video_submissions')
+      .select('id,student_id,title,description,storage_path,mime_type,duration_seconds,status,review_note,created_at')
+      .order('created_at',{ascending:false});
+    if(error)throw error;
+    const records=rows||[];
+    const prepared=await Promise.all(records.map(async row=>{
+      const {data,error}=await supabaseClient.storage.from('kichs-student-videos').createSignedUrl(row.storage_path,3600);
+      return {...row,videoUrl:error?null:data?.signedUrl||null};
+    }));
+    const approved=prepared.filter(row=>row.status==='approved');
+    feed.innerHTML=approved.length?approved.map(row=>
+      '<div style="padding:12px 0;border-bottom:1px solid #e5edf5">'+
+      '<b>'+esc(row.title)+'</b>'+
+      (row.videoUrl?'<video controls playsinline preload="metadata" src="'+esc(row.videoUrl)+'" style="display:block;width:100%;max-height:260px;background:#111;border-radius:12px;margin-top:9px"></video>':'<p class="muted">Video preview is temporarily unavailable.</p>')+
+      (row.description?'<p style="font-size:13px;color:#64748b;margin-top:6px">'+esc(row.description)+'</p>':'')+
+      '<small class="muted">'+Number(row.duration_seconds||0).toFixed(1)+' seconds</small></div>'
+    ).join(''):'<div class="muted" style="padding:10px 0">No videos have been approved yet.</div>';
+    const mineRows=prepared.filter(row=>row.student_id===user.id);
+    mine.innerHTML=mineRows.length?mineRows.map(row=>
+      '<div style="padding:11px 0;border-bottom:1px solid #e5edf5"><b>'+esc(row.title)+'</b>'+
+      '<div style="margin-top:5px;font-size:12px;font-weight:700;color:'+(row.status==='approved'?'#15803d':row.status==='rejected'?'#b42318':'#a16207')+'">'+
+      row.status.toUpperCase()+'</div>'+
+      (row.review_note?'<p style="font-size:13px;color:#64748b;margin-top:5px">Admin note: '+esc(row.review_note)+'</p>':'')+
+      '<small class="muted">'+new Date(row.created_at).toLocaleString()+'</small></div>'
+    ).join(''):'<div class="muted" style="padding:10px 0">You have not submitted any videos yet.</div>';
+  }catch(error){
+    console.error('KICHS video list failed:',error);
+    feed.innerHTML='<div class="muted">Approved videos could not be loaded. Please refresh and try again.</div>';
+    mine.innerHTML='<div class="muted">Your submissions could not be loaded. Please refresh and try again.</div>';
+  }
+}
+
 function openPage(page){
 document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
 document.getElementById(page+"Page").classList.add("active");
 document.querySelectorAll(".bottom button").forEach(x=>x.classList.remove("active"));
-const map={news:"nnews",resources:"nres",messages:"nmsg",members:"nmembers",files:"nfiles"};
+const map={news:"nnews",resources:"nres",videos:"nvideos",messages:"nmsg",members:"nmembers",files:"nfiles"};
 if(map[page])document.getElementById(map[page]).classList.add("active");
 menu.style.display="none";scrollTo(0,0);
 if(page==="resources")openResources();
+if(page==="videos")loadStudentVideos();
 if(page==="files")renderOfflineFiles();
 if(page==="members")renderMembers(document.getElementById("memberSearch")?.value||"");
 if(page==="messages"&&typeof window.loadChatInbox==="function")window.loadChatInbox();
